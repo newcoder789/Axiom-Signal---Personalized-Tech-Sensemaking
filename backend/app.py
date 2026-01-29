@@ -10,7 +10,7 @@ import os
 load_dotenv()
 
 app = FastAPI(title="Axiom v0")
-
+    
 # structured input and output 
 class AxiomResponse(BaseModel):
     summary: str = Field(..., description="Short explanation of the topic")
