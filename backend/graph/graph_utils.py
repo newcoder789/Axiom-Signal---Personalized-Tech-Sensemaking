@@ -1,8 +1,12 @@
 """
-Axiom v0 - LangGraph Pipeline
+Axiom v0 - LangGraph Pipeline (Day 4 - Fixed Prompts)
 3-node decision pipeline: Signal Framing → Reality Check → Verdict Synthesis
 
-Day 3 Status: Core pipeline functional, ready for evaluation testing
+Day 4 Status: Fixed verdict logic to not ignore everything
+Key changes:
+- Clarified market_signal meanings (mixed ≠ weak)
+- Better hype score calibration (established tech = 3-5, not 6)
+- Strengthened decision rules with concrete examples
 """
 
 from langgraph.graph import StateGraph, END
@@ -35,10 +39,11 @@ class SignalFramingOutput(BaseModel):
         Literal["frontend", "backend", "AI/ML", "DevOps", "database", "systems"]
     ] = Field(None, description="Technical domain classification")
     time_horizon: Optional[Literal["short", "medium", "long"]] = Field(
-        None, description="Maturity level: short (<1yr), medium (1-3yr), long (3+yr)"
+        None,
+        description="Maturity level: short (<1yr), medium (1-3yr), long (3+yr), Use null if unclear.",
     )
     confidence_level: Optional[Literal["low", "medium", "high"]] = Field(
-        None,  description="Confidence in understanding what the topic is"
+        None, description="Confidence in understanding what the topic is"
     )
     user_context_summary: str = Field(
         ..., description="Extract key facts: role, skill level, goals"
@@ -113,7 +118,7 @@ llm = ChatGroq(
 
 
 # ============================================================================
-# PROMPTS (One for each node)
+# PROMPTS (Fixed - Day 4)
 # ============================================================================
 
 SIGNAL_FRAMING_PROMPT = ChatPromptTemplate.from_messages(
@@ -142,13 +147,17 @@ Required output fields (must always be present in JSON):
 - signal_summary: string or null
 - domain: one of ["frontend","backend","AI/ML","DevOps","database","systems"] or null
 - time_horizon: "short","medium","long" or null
-- confidence_level: "low","medium","high"
+- confidence_level: "low","medium","high" or null
 - user_context_summary: string (summarize how this relates to the user profile)
 
 signal_summary rules:
 - May ONLY paraphrase common descriptions
 - MUST include uncertainty if present
 - MUST NOT introduce new technical claims
+
+time_horizon rules:
+If you cannot determine time_horizon with confidence, set it to null (not "unclear").
+
 
 If the topic appears invented, hyped without substance, or poorly defined:
 - Say that explicitly in signal_summary.
@@ -188,30 +197,76 @@ Context:
 - Signal status: {status}
 - User background: {user_context_summary}
 
-CRITICAL RULES:
-1. If evidence is indirect or inferred, SAY SO in evidence_summary.
-2. If patterns are based on similar past trends, say "based on analogous patterns".
-3. Do NOT fill gaps with guesses.
-4. Unknowns are valid answers - state them explicitly.
-5. Be harsh on hype. Do not soften risk factors.
+═══════════════════════════════════════════════════════════════
+MARKET SIGNAL CALIBRATION (use these benchmarks):
+═══════════════════════════════════════════════════════════════
 
-Hype scale (anchor it):
-- 0–2: obscure / barely discussed
-- 3–5: niche but real
-- 6–8: popular, possibly inflated
-- 9–10: hype-driven, noise > signal
+"strong" = Industry-standard, widespread production use
+Examples: PostgreSQL, Docker, React, TypeScript, AWS, Kubernetes
+
+"mixed" = Real adoption but not universal, legitimate but not dominant
+Examples: Rust, GraphQL, Svelte, MongoDB, FastAPI
+
+"weak" = Little production usage, mostly experimental/academic
+Examples: Brand new tools, research projects, vaporware
+
+CRITICAL: If used by major companies (Google, Meta, etc.) in production, it's AT LEAST "mixed", likely "strong".
+
+═══════════════════════════════════════════════════════════════
+HYPE SCORE CALIBRATION:
+═══════════════════════════════════════════════════════════════
+
+0-2: Obscure, barely discussed
+3-5: Legitimate but not hyped (PostgreSQL, Redis, Nginx)
+6-7: Popular, some justified excitement (Next.js, Tailwind)
+8-9: Hyped, possibly inflated (AutoGPT, Web3 at peak)
+10: Pure hype, vaporware
+
+CRITICAL: Established tech (PostgreSQL, Docker, TypeScript) = hype score 3-5, NOT 6+
+
+═══════════════════════════════════════════════════════════════
+FEASIBILITY ASSESSMENT:(according to users current conditoin or thier  surrounding evironment of team member, their skills, undrestanding, exppreience )
+═══════════════════════════════════════════════════════════════
+
+"high" = User can start TODAY (matches current stack, good docs)
+"medium" = 2-4 weeks of focused learning (related but new concepts)
+"low" = Steep curve OR not relevant to goals
+
+═══════════════════════════════════════════════════════════════
+
+CRITICAL RULES:
+1. If evidence is indirect, SAY SO in evidence_summary
+2. Do NOT conflate "new" with "hyped"
+3. Established tech gets LOW hype scores (3-5)
+4. Be harsh on hype, but fair to legitimate tools
 
 evidence_summary:
-- If no direct sources are provided, MUST state:
-  "Assessment based on general ecosystem patterns, not direct evidence"
+- If no direct sources: "Assessment based on general ecosystem patterns and industry knowledge, not direct evidence"
 
-risk_factors rules:
-- Must mention at least 2 concrete risks
-- Be specific (not "may be challenging" but "steep learning curve for X")
+risk_factors:
+- Must be specific: "steep learning curve for X" not "may be challenging"
 
 Do NOT recommend actions.
-Do NOT soften risks to be encouraging.
+Do NOT soften risks.
 
+CRITICAL CALIBRATION EXAMPLES:
+
+These are "strong" (not "mixed"):
+- PostgreSQL, MySQL (most common production databases)
+- TypeScript (JavaScript standard in 2024+)
+- Docker, Kubernetes (container standards)
+- Nginx, Apache (web server standards)
+- React, Vue (dominant frontend frameworks)
+- Python, Go, Rust for backends
+
+These are "mixed":
+- Svelte, Solid.js (growing but not dominant)
+- GraphQL (used but REST still more common)
+- Deno (exists but Node.js dominates)
+- FastAPI (popular in Python but not universal)
+
+If a technology is THE default choice for its category, it's "strong".
+If it's A legitimate choice but not THE default, it's "mixed".
 Return ONLY valid JSON.
 {format_instructions}""",
         )
@@ -226,41 +281,51 @@ VERDICT_PROMPT = ChatPromptTemplate.from_messages(
             """You are a blunt, opinionated career decision advisor.
 
 Inputs:
-Signal analysis:
-{signal}
+Signal: {signal}
+Reality check: {reality_check}
 
-Reality check:
-{reality_check}
+═══════════════════════════════════════════════════════════════
+DECISION RULES:
+═══════════════════════════════════════════════════════════════
 
-Your job is to decide ONE verdict: "pursue", "explore", or "ignore"
+PURSUE = Worth learning deeply NOW
+- feasibility = "high" OR "medium"
+- market_signal = "strong" OR "mixed" (mixed = real but not universal)
+- User profile aligns with technology
+- Technology is established (time_horizon = "medium" or "long")
 
-CRITICAL DECISION RULES:
-1. Pick exactly ONE verdict. No hedging.
-2. If hype_score > 7 AND feasibility = "low" → default to "ignore"
-3. If market_signal = "weak" AND user has clear modern goals → "ignore"
-4. If topic is obsolete/legacy AND user wants to build new products → "ignore"
-5. "Explore" is allowed ONLY if downside is low and signal is non-trivial
-6. Do NOT use "explore" as a soft "no" - if it's not worth their time, say "ignore"
+Examples: PostgreSQL for backend dev, Docker for full-stack, TypeScript for frontend
 
-Action items rules:
-- Must be concrete and testable
-- Must reference a real artifact (repo, spec, API, benchmark, dataset)
-- Must produce an observable outcome within weeks, not months
-- NO generic advice like "learn more", "study fundamentals", "get familiar with"
+EXPLORE = Keep on radar, light research
+- feasibility = "medium"
+- market_signal = "mixed"
+- Technology is emerging (time_horizon = "short")
+- OR: hype_score > 6 AND user should be aware
 
-VALID action items:
-- "Build a simple CRUD app using X to test DX"
-- "Read the RFC spec for Y to understand the design tradeoffs"
-- "Compare benchmarks of X vs Y for your use case"
+Examples: Rust for senior engineer, LangGraph for AI/ML engineer
 
-INVALID action items:
-- "Learn more about X"
-- "Study the fundamentals"
-- "Get familiar with the ecosystem"
+IGNORE = Not worth time, clear opportunity cost
+- feasibility = "low" AND market_signal = "weak"
+- OR: Obsolete for stated goals (COBOL for modern SaaS)
+- OR: status = "insufficient_signal" (vaporware)
+- OR: hype_score > 8 AND feasibility = "low"
 
-If the best advice is to ignore:
-- Say so clearly and directly
-- State the opportunity cost (what they should focus on instead)
+Examples: COBOL for web, Quantum CSS, Blockchain for Git
+
+═══════════════════════════════════════════════════════════════
+CRITICAL:
+═══════════════════════════════════════════════════════════════
+feasibiltiy measured according to users current conditoin or thier  surrounding evironment of team member, their skills, undrestanding, exppreience.
+"mixed" market signal does NOT mean ignore!
+"mixed" often means "explore" or "pursue" depending on user context.
+
+Action items must be concrete:
+✅ "Build a CRUD app using FastAPI"
+✅ "Read PostgreSQL 16 release notes"
+❌ "Learn more about X"
+❌ "Study fundamentals"
+
+If "ignore": state opportunity cost, suggest alternative.
 
 Return ONLY valid JSON.
 {format_instructions}""",
@@ -384,21 +449,24 @@ app = workflow.compile()
 
 
 # ============================================================================
-# QUICK TEST (Remove before production)
+# QUICK TEST
 # ============================================================================
 
 if __name__ == "__main__":
     test_result = app.invoke(
         {
-            "topic": "LangGraph",
-            "user_profile": "3rd-year CS student interested in backend + AI, preparing for job market",
+            "topic": "PostgreSQL 16",
+            "user_profile": "Backend developer, 3 years experience, building data-heavy applications",
         }
     )
 
     print("\n" + "=" * 80)
     print("QUICK TEST OUTPUT:")
     print("=" * 80)
+    print(f"Topic: PostgreSQL 16")
     print(f"Signal Status: {test_result['signal'].status}")
+    print(f"Market Signal: {test_result['reality_check'].market_signal}")
+    print(f"Hype Score: {test_result['reality_check'].hype_score}")
     print(f"Verdict: {test_result['verdict'].verdict}")
     print(f"Timeline: {test_result['verdict'].timeline}")
     print("=" * 80 + "\n")

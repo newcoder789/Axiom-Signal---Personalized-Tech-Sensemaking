@@ -1,0 +1,560 @@
+{
+  "timestamp": "2026-01-30T03:18:31.114685",
+  "summary": {
+    "total_tests": 30,
+    "total_passed": 21,
+    "pass_rate": 70.0,
+    "category_breakdown": {
+      "Hype Tech": {
+        "passed": 3,
+        "total": 6
+      },
+      "Dead Tech": {
+        "passed": 6,
+        "total": 6
+      },
+      "Vaporware": {
+        "passed": 5,
+        "total": 6
+      },
+      "Solid Tech": {
+        "passed": 2,
+        "total": 6
+      },
+      "Edge Cases": {
+        "passed": 5,
+        "total": 6
+      }
+    }
+  },
+  "test_results": [
+    {
+      "category": "Hype Tech",
+      "name": "Devin AI",
+      "topic": "Devin AI coding agent",
+      "user_profile": "Senior software engineer, interested in AI-assisted development",
+      "expected_verdict": "explore",
+      "actual_verdict": "explore",
+      "passed": true,
+      "notes": "High hype but represents real trend in AI coding assistants",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 6,
+        "feasibility": "medium",
+        "reasoning": "The technology is emerging with a medium feasibility and mixed market signal, indicating it's worth keeping on radar for further research. As a senior software engineer interested in AI-assisted development, it's essential to stay informed about Devin AI's capabilities and potential impact on the industry.",
+        "timeline": "in 3 months"
+      }
+    },
+    {
+      "category": "Hype Tech",
+      "name": "AutoGPT",
+      "topic": "AutoGPT autonomous agents",
+      "user_profile": "AI/ML engineer, building LLM applications",
+      "expected_verdict": "explore",
+      "actual_verdict": "ignore",
+      "passed": false,
+      "notes": "Overhyped but useful for understanding agent patterns",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "weak",
+        "hype_score": 9,
+        "feasibility": "low",
+        "reasoning": "The feasibility of AutoGPT is low, and the market signal is weak. The steep learning curve, unclear long-term implications, and limited understanding of its capabilities and limitations make it not worth the time.",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Hype Tech",
+      "name": "Web3 Development",
+      "topic": "Web3 development and dApps",
+      "user_profile": "Full-stack developer, curious about blockchain",
+      "expected_verdict": "ignore",
+      "actual_verdict": "explore",
+      "passed": false,
+      "notes": "Unless crypto-focused, opportunity cost too high",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 8,
+        "feasibility": "medium",
+        "reasoning": "The feasibility of Web3 development and dApps is medium, and the market signal is mixed. The user profile aligns with the technology, and it's an emerging field with a hype score of 8.",
+        "timeline": "in 3 months"
+      }
+    },
+    {
+      "category": "Hype Tech",
+      "name": "No-Code AI",
+      "topic": "No-code AI platform builders",
+      "user_profile": "Product manager, non-technical, wants to build AI features",
+      "expected_verdict": "explore",
+      "actual_verdict": "explore",
+      "passed": true,
+      "notes": "Appropriate for non-technical roles",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 7,
+        "feasibility": "medium",
+        "reasoning": "The feasibility of no-code AI platform builders is medium, and the market signal is mixed. This suggests that it's worth keeping them on radar for further research, especially considering the user's interest in building AI features as a product manager with a non-technical background.",
+        "timeline": "in 3 months"
+      }
+    },
+    {
+      "category": "Hype Tech",
+      "name": "Edge AI",
+      "topic": "Edge AI and on-device models",
+      "user_profile": "Mobile developer, iOS/Android experience",
+      "expected_verdict": "explore",
+      "actual_verdict": "explore",
+      "passed": true,
+      "notes": "Legitimate trend in mobile AI",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 6,
+        "feasibility": "medium",
+        "reasoning": "The technology is emerging with a medium feasibility and mixed market signal, indicating that it's worth keeping on radar with light research. The user's role as a mobile developer aligns with the technology, and the time horizon is medium, suggesting that it's worth exploring further.",
+        "timeline": "in 3 months"
+      }
+    },
+    {
+      "category": "Hype Tech",
+      "name": "Quantum ML",
+      "topic": "Quantum machine learning",
+      "user_profile": "Data scientist, 3 years experience in ML",
+      "expected_verdict": "ignore",
+      "actual_verdict": "explore",
+      "passed": false,
+      "notes": "Experimental, not production-ready",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "weak",
+        "hype_score": 6,
+        "feasibility": "medium",
+        "reasoning": "Quantum machine learning is an emerging field with a medium feasibility and a weak market signal. It requires specialized knowledge and has a steep learning curve, but it may be worth exploring for its potential applications in machine learning.",
+        "timeline": "in 3 months"
+      }
+    },
+    {
+      "category": "Dead Tech",
+      "name": "CoffeeScript",
+      "topic": "CoffeeScript for new projects",
+      "user_profile": "Frontend developer, starting a new web app",
+      "expected_verdict": "ignore",
+      "actual_verdict": "ignore",
+      "passed": true,
+      "notes": "Superseded by modern JavaScript/TypeScript",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "weak",
+        "hype_score": 2,
+        "feasibility": "low",
+        "reasoning": "The feasibility of CoffeeScript is low, and the market signal is weak. Given its limited adoption and maintenance, it's not worth investing time in learning it deeply.",
+        "timeline": "now"
+      }
+    },
+    {
+      "category": "Dead Tech",
+      "name": "Backbone.js",
+      "topic": "Backbone.js for single-page apps",
+      "user_profile": "Frontend developer, building modern SPA",
+      "expected_verdict": "ignore",
+      "actual_verdict": "ignore",
+      "passed": true,
+      "notes": "React/Vue/Angular are standard now",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "weak",
+        "hype_score": 2,
+        "feasibility": "low",
+        "reasoning": "Backbone.js has a low feasibility and weak market signal, making it not worth the time investment. Its steep learning curve, limited community support, and lack of modern examples make it obsolete for modern frontend development.",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Dead Tech",
+      "name": "AngularJS 1.x",
+      "topic": "AngularJS 1.x for new applications",
+      "user_profile": "Full-stack developer, needs to choose a frontend framework",
+      "expected_verdict": "ignore",
+      "actual_verdict": "ignore",
+      "passed": true,
+      "notes": "Angular 2+ or other modern frameworks preferred",
+      "outputs": {
+        "signal_status": "insufficient_signal",
+        "market_signal": "weak",
+        "hype_score": 0,
+        "feasibility": "low",
+        "reasoning": "The topic lacks sufficient public clarity or substance to justify investment of time.",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Dead Tech",
+      "name": "COBOL Web",
+      "topic": "COBOL for web development",
+      "user_profile": "Full-stack developer, wants to build modern SaaS",
+      "expected_verdict": "ignore",
+      "actual_verdict": "ignore",
+      "passed": true,
+      "notes": "Wrong tool for modern web development",
+      "outputs": {
+        "signal_status": "insufficient_signal",
+        "market_signal": "weak",
+        "hype_score": 0,
+        "feasibility": "low",
+        "reasoning": "The topic lacks sufficient public clarity or substance to justify investment of time.",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Dead Tech",
+      "name": "Flash",
+      "topic": "Adobe Flash for web animations",
+      "user_profile": "Frontend developer, needs interactive web content",
+      "expected_verdict": "ignore",
+      "actual_verdict": "ignore",
+      "passed": true,
+      "notes": "Deprecated, use CSS/Canvas/WebGL",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "weak",
+        "hype_score": 0,
+        "feasibility": "low",
+        "reasoning": "Adobe Flash has a low feasibility and weak market signal, and its use has declined due to security concerns and the rise of HTML5. It's not worth investing time in learning a technology that's no longer widely supported.",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Dead Tech",
+      "name": "Perl CGI",
+      "topic": "Perl CGI scripts for web backends",
+      "user_profile": "Backend developer, building new web services",
+      "expected_verdict": "ignore",
+      "actual_verdict": "ignore",
+      "passed": true,
+      "notes": "Modern frameworks (FastAPI, Express) are standard",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "weak",
+        "hype_score": 0,
+        "feasibility": "low",
+        "reasoning": "Perl CGI scripts have a low feasibility and weak market signal, with a steep learning curve and limited community support. They are also being replaced by more modern technologies, making them a less viable option for backend development.",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Vaporware",
+      "name": "Quantum CSS",
+      "topic": "Quantum CSS Framework",
+      "user_profile": "Junior frontend developer, learning modern web development",
+      "expected_verdict": "ignore",
+      "actual_verdict": "ignore",
+      "passed": true,
+      "notes": "Made-up framework, no substance",
+      "outputs": {
+        "signal_status": "insufficient_signal",
+        "market_signal": "weak",
+        "hype_score": 0,
+        "feasibility": "low",
+        "reasoning": "The topic lacks sufficient public clarity or substance to justify investment of time.",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Vaporware",
+      "name": "NeuralFlux DB",
+      "error": "1 validation error for SignalFramingOutput\ntime_horizon\n  Input should be 'short', 'medium' or 'long' [type=literal_error, input_value='unclear', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.12/v/literal_error",
+      "passed": false
+    },
+    {
+      "category": "Vaporware",
+      "name": "Blockchain Git",
+      "topic": "Blockchain-powered version control",
+      "user_profile": "Software engineer, looking for better Git workflows",
+      "expected_verdict": "ignore",
+      "actual_verdict": "ignore",
+      "passed": true,
+      "notes": "Blockchain doesn't solve Git's actual problems",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "weak",
+        "hype_score": 8,
+        "feasibility": "low",
+        "reasoning": "The feasibility of blockchain-based version control systems is low, and the market signal is weak. The technology is still emerging, and there are potential security risks if not implemented correctly.",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Vaporware",
+      "name": "AI-Native Language",
+      "topic": "AI-native programming language",
+      "user_profile": "Software developer, 5 years experience",
+      "expected_verdict": "ignore",
+      "actual_verdict": "ignore",
+      "passed": true,
+      "notes": "Vague buzzword, no clear substance",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "weak",
+        "hype_score": 8,
+        "feasibility": "low",
+        "reasoning": "The feasibility of this language is low, and the market signal is weak. There is limited public information available, and it's unclear how this language would be used in practice. The steep learning curve due to the novelty of the language and the unclear specific skills required to work with it make it not worth the time.",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Vaporware",
+      "name": "Zero-Latency Consensus",
+      "topic": "Zero-latency distributed consensus protocol",
+      "user_profile": "Distributed systems engineer",
+      "expected_verdict": "ignore",
+      "actual_verdict": "ignore",
+      "passed": true,
+      "notes": "Violates CAP theorem, impossible claim",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "weak",
+        "hype_score": 9,
+        "feasibility": "low",
+        "reasoning": "The feasibility of the distributed consensus protocol is low, and the market signal is weak. The concept lacks clear public framing and definition, and there is indirect evidence suggesting it may be an invented or hyped concept.",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Vaporware",
+      "name": "Quantum Router",
+      "topic": "Quantum-powered API routing",
+      "user_profile": "Backend developer, building microservices",
+      "expected_verdict": "ignore",
+      "actual_verdict": "ignore",
+      "passed": true,
+      "notes": "Quantum buzzword misapplied to routing",
+      "outputs": {
+        "signal_status": "insufficient_signal",
+        "market_signal": "weak",
+        "hype_score": 0,
+        "feasibility": "low",
+        "reasoning": "The topic lacks sufficient public clarity or substance to justify investment of time.",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Solid Tech",
+      "name": "PostgreSQL 16",
+      "topic": "PostgreSQL 16",
+      "user_profile": "Backend developer, 3 years experience, building data-heavy apps",
+      "expected_verdict": "pursue",
+      "actual_verdict": "explore",
+      "passed": false,
+      "notes": "Industry standard database",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 5,
+        "feasibility": "medium",
+        "reasoning": "The feasibility of PostgreSQL 16 is medium, and the market signal is mixed. As a backend developer with 3 years of experience, building data-heavy apps, this topic is relevant to your work, particularly if you're considering upgrading your database management system or exploring new features and improvements in PostgreSQL.",
+        "timeline": "in 3 months"
+      }
+    },
+    {
+      "category": "Solid Tech",
+      "name": "Redis 7",
+      "topic": "Redis 7 for caching",
+      "user_profile": "Backend developer, optimizing API performance",
+      "expected_verdict": "pursue",
+      "actual_verdict": "pursue",
+      "passed": true,
+      "notes": "Standard caching solution",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "strong",
+        "hype_score": 3,
+        "feasibility": "medium",
+        "reasoning": "Given the high-confidence market signal and the user's context as a backend developer, it's worth learning Redis 7 deeply now. The technology is established with a long time horizon, and the user is likely familiar with caching concepts and Redis as a caching solution.",
+        "timeline": "now"
+      }
+    },
+    {
+      "category": "Solid Tech",
+      "name": "Docker",
+      "topic": "Docker containers",
+      "user_profile": "Full-stack developer, wants to improve deployment",
+      "expected_verdict": "pursue",
+      "actual_verdict": "pursue",
+      "passed": true,
+      "notes": "Essential DevOps skill",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 5,
+        "feasibility": "medium",
+        "reasoning": "Given the user's full-stack developer background and the medium time horizon, Docker containers are worth learning deeply now. The mixed market signal suggests that Docker is a relevant technology, but its optimal use cases and best practices are not universally agreed upon.",
+        "timeline": "now"
+      }
+    },
+    {
+      "category": "Solid Tech",
+      "name": "FastAPI",
+      "topic": "FastAPI Python framework",
+      "user_profile": "Python developer, building REST APIs for a startup",
+      "expected_verdict": "pursue",
+      "actual_verdict": "explore",
+      "passed": false,
+      "notes": "Modern, well-adopted Python framework",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 7,
+        "feasibility": "medium",
+        "reasoning": "FastAPI has a medium feasibility and a mixed market signal, indicating it's an emerging technology. Its hype score is 7, suggesting it's worth keeping on radar. As a Python developer building REST APIs for a startup, you may find FastAPI a suitable choice for its high performance, ease of use, and extensive libraries.",
+        "timeline": "in 3 months"
+      }
+    },
+    {
+      "category": "Solid Tech",
+      "name": "TypeScript",
+      "topic": "TypeScript",
+      "user_profile": "Frontend developer, 2 years JavaScript experience",
+      "expected_verdict": "pursue",
+      "actual_verdict": "explore",
+      "passed": false,
+      "notes": "Industry standard for typed JavaScript",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 5,
+        "feasibility": "medium",
+        "reasoning": "The adoption and usage of TypeScript are still evolving, and its long-term impact on the JavaScript ecosystem is unclear. As a frontend developer with 2 years of JavaScript experience, understanding TypeScript can be beneficial for improving code quality and maintainability, but it may require additional learning and setup.",
+        "timeline": "in 3 months"
+      }
+    },
+    {
+      "category": "Solid Tech",
+      "name": "Nginx",
+      "topic": "Nginx reverse proxy",
+      "user_profile": "DevOps engineer, managing web infrastructure",
+      "expected_verdict": "pursue",
+      "actual_verdict": "explore",
+      "passed": false,
+      "notes": "Standard web server/reverse proxy",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 5,
+        "feasibility": "medium",
+        "reasoning": "The feasibility of Nginx is medium, and the market signal is mixed. This suggests that Nginx is a technology worth keeping on radar, with some real but not universal interest. As a DevOps engineer managing web infrastructure, it's worth exploring Nginx's capabilities and use cases further.",
+        "timeline": "in 3 months"
+      }
+    },
+    {
+      "category": "Edge Cases",
+      "name": "Rust for Backends",
+      "topic": "Rust for backend web development",
+      "user_profile": "Senior backend engineer, 5 years Go/Python, interested in performance",
+      "expected_verdict": "explore",
+      "actual_verdict": "explore",
+      "passed": true,
+      "notes": "Legitimate but steep learning curve",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 6,
+        "feasibility": "medium",
+        "reasoning": "Rust is a systems programming language with a mixed market signal, indicating it's worth keeping on radar for further research. As a senior backend engineer, you should be aware of its potential applications and implications.",
+        "timeline": "now"
+      }
+    },
+    {
+      "category": "Edge Cases",
+      "name": "Kubernetes for Startup",
+      "topic": "Kubernetes",
+      "user_profile": "DevOps engineer at 3-person startup",
+      "expected_verdict": "ignore",
+      "actual_verdict": "pursue",
+      "passed": false,
+      "notes": "Overkill for small team, use simpler solutions",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "strong",
+        "hype_score": 6,
+        "feasibility": "medium",
+        "reasoning": "Given the strong market signal and established technology, it's worth learning Kubernetes deeply now. As a DevOps engineer at a 3-person startup, you likely have experience with containerization and are familiar with the challenges of scaling and managing applications.",
+        "timeline": "now"
+      }
+    },
+    {
+      "category": "Edge Cases",
+      "name": "GraphQL",
+      "topic": "GraphQL",
+      "user_profile": "Backend developer, 3 years building REST APIs",
+      "expected_verdict": "explore",
+      "actual_verdict": "explore",
+      "passed": true,
+      "notes": "Legitimate alternative to REST",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 6,
+        "feasibility": "medium",
+        "reasoning": "Given the medium feasibility, mixed market signal, and medium time horizon, it's best to keep GraphQL on your radar with light research. As a backend developer with 3 years of experience, you may find GraphQL to be a challenging but rewarding technology to learn.",
+        "timeline": "in 3 months"
+      }
+    },
+    {
+      "category": "Edge Cases",
+      "name": "Tailwind CSS",
+      "topic": "Tailwind CSS",
+      "user_profile": "Frontend developer, comfortable with CSS",
+      "expected_verdict": "explore",
+      "actual_verdict": "explore",
+      "passed": true,
+      "notes": "Polarizing but widely adopted",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 6,
+        "feasibility": "medium",
+        "reasoning": "The technology is established with a medium time horizon, but the market signal is mixed, indicating a need for further research. The user profile aligns with the technology, and the feasibility is medium.",
+        "timeline": "in 3 months"
+      }
+    },
+    {
+      "category": "Edge Cases",
+      "name": "Serverless",
+      "topic": "AWS Lambda serverless functions",
+      "user_profile": "Full-stack developer, building a new product",
+      "expected_verdict": "explore",
+      "actual_verdict": "explore",
+      "passed": true,
+      "notes": "Depends heavily on use case",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 6,
+        "feasibility": "medium",
+        "reasoning": "AWS Lambda has a mixed market signal, but its feasibility is medium and it aligns with your user profile as a full-stack developer. The technology is established, but it has a steep learning curve and potential cold start issues.",
+        "timeline": "in 3 months"
+      }
+    },
+    {
+      "category": "Edge Cases",
+      "name": "Svelte",
+      "topic": "Svelte frontend framework",
+      "user_profile": "Frontend developer, experienced with React",
+      "expected_verdict": "explore",
+      "actual_verdict": "explore",
+      "passed": true,
+      "notes": "Smaller but growing, worth knowing about",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 6,
+        "feasibility": "medium",
+        "reasoning": "Svelte's relatively low adoption and maturity may require careful consideration before adopting it for production use, but its simplicity and efficiency are appealing. As a frontend developer experienced with React, you may find Svelte's simplicity and efficiency appealing, but its relatively low adoption and maturity may require careful consideration before adopting it for production use.",
+        "timeline": "in 3 months"
+      }
+    }
+  ]
+}

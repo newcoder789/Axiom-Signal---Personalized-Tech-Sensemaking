@@ -1,142 +1,474 @@
 """
-Axiom v0 - Initial Test Suite
-Tests the 3-node pipeline with 5 edge cases
+Day 4 Comprehensive Test Suite - 30 Topics
+Categories: Hype Tech, Dead Tech, Vaporware, Solid Tech, Edge Cases
 
-Day 3 Status: All tests passing, reveals Node 3 is too soft on "ignore" verdicts
-Next Step: Expand to 20-30 topics for comprehensive validation (Day 4)
+This is the gold standard test - if system passes 24+/30, it's production-ready for v0
 """
 
 from graph.graph_utils import app
 import json
+from datetime import datetime
+import os
 
 
-def pretty_print(test_name: str, result: dict) -> None:
-    """Pretty print test results with clear formatting"""
-    print("\n" + "=" * 80)
-    print(f"🧪 {test_name}")
-    print("=" * 80)
+def test_topic(
+    category: str, name: str, topic: str, user: str, expected: str, notes: str = ""
+):
+    """Run a single test and return results"""
+    print(f"\n🔄 Testing: {name}...", end="")
 
-    print("\n📡 SIGNAL FRAMING:")
-    print(json.dumps(result["signal"].model_dump(), indent=2))
+    try:
+        result = app.invoke({"topic": topic, "user_profile": user})
+        actual = result["verdict"].verdict
 
-    print("\n🔍 REALITY CHECK:")
-    print(json.dumps(result["reality_check"].model_dump(), indent=2))
+        passed = actual == expected
+        symbol = "✅" if passed else "❌"
 
-    print("\n⚖️ VERDICT:")
-    verdict = result["verdict"]
-    if hasattr(verdict, "model_dump"):
-        print(json.dumps(verdict.model_dump(), indent=2))
-    else:
-        print(json.dumps(verdict, indent=2))
-
-    print("\n" + "=" * 80)
+        print(f" {symbol} actual: {actual}, expected: {expected}")
+        print(f'Outpus: "signal_status": {result["signal"].status}, "market_signal": {result["reality_check"].market_signal},"hype_score": {result["reality_check"].hype_score}, "feasibility": {result["reality_check"].feasibility}')
+        print(f'User context summary: {result["signal"].user_context_summary}')
+        print(f'Risk factors: {result["reality_check"].risk_factors}')
+        print(f'Reasoning: {result["verdict"].reasoning}')
+        print(f'Future action items: {result["verdict"].action_items}')
+        return {
+            "category": category,
+            "name": name,
+            "topic": topic,
+            "user_profile": user,
+            "expected_verdict": expected,
+            "actual_verdict": actual,
+            "passed": passed,
+            "notes": notes,
+            "outputs": {
+                "signal_status": result["signal"].status,
+                "market_signal": result["reality_check"].market_signal,
+                "hype_score": result["reality_check"].hype_score,
+                "feasibility": result["reality_check"].feasibility,
+                "reasoning": result["verdict"].reasoning,
+                "timeline": result["verdict"].timeline,
+            },
+        }
+    except Exception as e:
+        print(f" ❌ ERROR: {str(e)}")
+        return {"category": category, "name": name, "error": str(e), "passed": False}
 
 
 # ============================================================================
-# TEST CASES
+# TEST SUITE DEFINITION
 # ============================================================================
 
+test_cases = []
 
-def test_normal_topic():
-    """Test 1: Normal emerging tool (LangGraph)
-    Expected: 'explore' verdict with balanced reasoning
-    """
-    result = app.invoke(
+# ============================================================================
+# CATEGORY 1: HYPE TECH (6 topics)
+# These are hyped but some are legitimate, some aren't
+# ============================================================================
+
+test_cases.extend(
+    [
         {
-            "topic": "LangGraph",
-            "user_profile": "3rd-year CS student interested in backend + AI, preparing for job market",
-        }
-    )
-    pretty_print("TEST 1: Normal Topic (LangGraph)", result)
-    return result
-
-
-def test_hyped_topic():
-    """Test 2: Hyped mainstream framework (Next.js 15)
-    Expected: High hype_score (7-9), mention framework churn risks
-    """
-    result = app.invoke(
+            "category": "Hype Tech",
+            "name": "Devin AI",
+            "topic": "Devin AI coding agent",
+            "user": "Senior software engineer, interested in AI-assisted development",
+            "expected": "explore",  # Hyped but worth knowing about
+            "notes": "High hype but represents real trend in AI coding assistants",
+        },
         {
-            "topic": "Next.js 15",
-            "user_profile": "Frontend developer, 2 years experience, working at a startup",
-        }
-    )
-    pretty_print("TEST 2: Hyped Topic (Next.js 15)", result)
-    return result
-
-
-def test_irrelevant_topic():
-    """Test 3: Obsolete tech for modern use case (COBOL for web)
-    Expected: 'ignore' verdict with clear reasoning
-    KNOWN ISSUE: Currently returns 'explore' (Node 3 too soft)
-    """
-    result = app.invoke(
+            "category": "Hype Tech",
+            "name": "AutoGPT",
+            "topic": "AutoGPT autonomous agents",
+            "user": "AI/ML engineer, building LLM applications",
+            "expected": "explore",  # Overhyped but educational
+            "notes": "Overhyped but useful for understanding agent patterns",
+        },
         {
+            "category": "Hype Tech",
+            "name": "Web3 Development",
+            "topic": "Web3 development and dApps",
+            "user": "Full-stack developer, curious about blockchain",
+            "expected": "explore",  
+            "notes": "Unless crypto-focused, opportunity cost too high",
+        },
+        {
+            "category": "Hype Tech",
+            "name": "No-Code AI",
+            "topic": "No-code AI platform builders",
+            "user": "Product manager, non-technical, wants to build AI features",
+            "expected": "explore",  # Legit for PMs
+            "notes": "Appropriate for non-technical roles",
+        },
+        {
+            "category": "Hype Tech",
+            "name": "Edge AI",
+            "topic": "Edge AI and on-device models",
+            "user": "Mobile developer, iOS/Android experience",
+            "expected": "explore",  # Real trend, worth knowing
+            "notes": "Legitimate trend in mobile AI",
+        },
+        {
+            "category": "Hype Tech",
+            "name": "Quantum ML",
+            "topic": "Quantum machine learning",
+            "user": "Data scientist, 3 years experience in ML",
+            "expected": "ignore",  # Too early, not practical
+            "notes": "Experimental, not production-ready",
+        },
+    ]
+)
+
+# ============================================================================
+# CATEGORY 2: DEAD/OBSOLETE TECH (6 topics)
+# These should all return "ignore" with clear reasoning
+# ============================================================================
+
+test_cases.extend(
+    [
+        {
+            "category": "Dead Tech",
+            "name": "CoffeeScript",
+            "topic": "CoffeeScript for new projects",
+            "user": "Frontend developer, starting a new web app",
+            "expected": "ignore",
+            "notes": "Superseded by modern JavaScript/TypeScript",
+        },
+        {
+            "category": "Dead Tech",
+            "name": "Backbone.js",
+            "topic": "Backbone.js for single-page apps",
+            "user": "Frontend developer, building modern SPA",
+            "expected": "ignore",
+            "notes": "React/Vue/Angular are standard now",
+        },
+        {
+            "category": "Dead Tech",
+            "name": "AngularJS 1.x",
+            "topic": "AngularJS 1.x for new applications",
+            "user": "Full-stack developer, needs to choose a frontend framework",
+            "expected": "ignore",
+            "notes": "Angular 2+ or other modern frameworks preferred",
+        },
+        {
+            "category": "Dead Tech",
+            "name": "COBOL Web",
             "topic": "COBOL for web development",
-            "user_profile": "Full-stack developer, wants to build modern SaaS products",
-        }
-    )
-    pretty_print("TEST 3: Irrelevant Topic (COBOL for web)", result)
-    return result
-
-
-def test_unknown_topic():
-    """Test 4: Made-up/unclear topic (Quantum CSS Framework)
-    Expected: Low confidence, hedged language, 'ignore' verdict
-    """
-    result = app.invoke(
+            "user": "Full-stack developer, wants to build modern SaaS",
+            "expected": "ignore",
+            "notes": "Wrong tool for modern web development",
+        },
         {
+            "category": "Dead Tech",
+            "name": "Flash",
+            "topic": "Adobe Flash for web animations",
+            "user": "Frontend developer, needs interactive web content",
+            "expected": "ignore",
+            "notes": "Deprecated, use CSS/Canvas/WebGL",
+        },
+        {
+            "category": "Dead Tech",
+            "name": "Perl CGI",
+            "topic": "Perl CGI scripts for web backends",
+            "user": "Backend developer, building new web services",
+            "expected": "ignore",
+            "notes": "Modern frameworks (FastAPI, Express) are standard",
+        },
+    ]
+)
+
+# ============================================================================
+# CATEGORY 3: VAPORWARE/SCAM (6 topics)
+# Made-up or substance-free - should all be "ignore" with high confidence
+# ============================================================================
+
+test_cases.extend(
+    [
+        {
+            "category": "Vaporware",
+            "name": "Quantum CSS",
             "topic": "Quantum CSS Framework",
-            "user_profile": "Junior frontend developer, learning modern web development",
-        }
-    )
-    pretty_print("TEST 4: Unknown Topic (Quantum CSS Framework)", result)
-    return result
-
-
-def test_vaporware_topic():
-    """Test 5: Another vaporware test to check consistency
-    Expected: Similar to Test 4 - should detect insufficient signal
-    """
-    result = app.invoke(
+            "user": "Junior frontend developer, learning modern web development",
+            "expected": "ignore",
+            "notes": "Made-up framework, no substance",
+        },
         {
+            "category": "Vaporware",
+            "name": "NeuralFlux DB",
             "topic": "NeuralFlux Database Engine",
-            "user_profile": "Backend engineer, working on data-intensive applications",
-        }
-    )
-    pretty_print("TEST 5: Vaporware Topic (NeuralFlux Database)", result)
-    return result
+            "user": "Backend engineer, working on data-intensive applications",
+            "expected": "ignore",
+            "notes": "Vaporware database",
+        },
+        {
+            "category": "Vaporware",
+            "name": "Blockchain Git",
+            "topic": "Blockchain-powered version control",
+            "user": "Software engineer, looking for better Git workflows",
+            "expected": "ignore",
+            "notes": "Blockchain doesn't solve Git's actual problems",
+        },
+        {
+            "category": "Vaporware",
+            "name": "AI-Native Language",
+            "topic": "AI-native programming language",
+            "user": "Software developer, 5 years experience",
+            "expected": "ignore",
+            "notes": "Vague buzzword, no clear substance",
+        },
+        {
+            "category": "Vaporware",
+            "name": "Zero-Latency Consensus",
+            "topic": "Zero-latency distributed consensus protocol",
+            "user": "Distributed systems engineer",
+            "expected": "ignore",
+            "notes": "Violates CAP theorem, impossible claim",
+        },
+        {
+            "category": "Vaporware",
+            "name": "Quantum Router",
+            "topic": "Quantum-powered API routing",
+            "user": "Backend developer, building microservices",
+            "expected": "ignore",
+            "notes": "Quantum buzzword misapplied to routing",
+        },
+    ]
+)
+
+# ============================================================================
+# CATEGORY 4: SOLID BORING TECH (6 topics)
+# Established, proven - should be "pursue" or "explore"
+# ============================================================================
+
+test_cases.extend(
+    [
+        {
+            "category": "Solid Tech",
+            "name": "PostgreSQL 16",
+            "topic": "PostgreSQL 16",
+            "user": "Backend developer, 3 years experience, building data-heavy apps",
+            "expected": "pursue",
+            "notes": "Industry standard database",
+        },
+        {
+            "category": "Solid Tech",
+            "name": "Redis 7",
+            "topic": "Redis 7 for caching",
+            "user": "Backend developer, optimizing API performance",
+            "expected": "pursue",
+            "notes": "Standard caching solution",
+        },
+        {
+            "category": "Solid Tech",
+            "name": "Docker",
+            "topic": "Docker containers",
+            "user": "Full-stack developer, wants to improve deployment",
+            "expected": "pursue",
+            "notes": "Essential DevOps skill",
+        },
+        {
+            "category": "Solid Tech",
+            "name": "FastAPI",
+            "topic": "FastAPI Python framework",
+            "user": "Python developer, building REST APIs for a startup",
+            "expected": "pursue",
+            "notes": "Modern, well-adopted Python framework",
+        },
+        {
+            "category": "Solid Tech",
+            "name": "TypeScript",
+            "topic": "TypeScript",
+            "user": "Frontend developer, 2 years JavaScript experience",
+            "expected": "pursue",
+            "notes": "Industry standard for typed JavaScript",
+        },
+        {
+            "category": "Solid Tech",
+            "name": "Nginx",
+            "topic": "Nginx reverse proxy",
+            "user": "DevOps engineer, managing web infrastructure",
+            "expected": "pursue",
+            "notes": "Standard web server/reverse proxy",
+        },
+    ]
+)
+
+# ============================================================================
+# CATEGORY 5: EDGE CASES (6 topics)
+# Nuanced - verdict depends heavily on context
+# ============================================================================
+
+test_cases.extend(
+    [
+        {
+            "category": "Edge Cases",
+            "name": "Rust for Backends",
+            "topic": "Rust for backend web development",
+            "user": "Senior backend engineer, 5 years Go/Python, interested in performance",
+            "expected": "explore",
+            "notes": "Legitimate but steep learning curve",
+        },
+        {
+            "category": "Edge Cases",
+            "name": "Kubernetes for Startup",
+            "topic": "Kubernetes",
+            "user": "DevOps engineer at 3-person startup",
+            "expected": "ignore",  # Over-engineering for small team
+            "notes": "Overkill for small team, use simpler solutions",
+        },
+        {
+            "category": "Edge Cases",
+            "name": "GraphQL",
+            "topic": "GraphQL",
+            "user": "Backend developer, 3 years building REST APIs",
+            "expected": "explore",
+            "notes": "Legitimate alternative to REST",
+        },
+        {
+            "category": "Edge Cases",
+            "name": "Tailwind CSS",
+            "topic": "Tailwind CSS",
+            "user": "Frontend developer, comfortable with CSS",
+            "expected": "explore",  # or pursue, depends on preferences
+            "notes": "Polarizing but widely adopted",
+        },
+        {
+            "category": "Edge Cases",
+            "name": "Serverless",
+            "topic": "AWS Lambda serverless functions",
+            "user": "Full-stack developer, building a new product",
+            "expected": "explore",
+            "notes": "Depends heavily on use case",
+        },
+        {
+            "category": "Edge Cases",
+            "name": "Svelte",
+            "topic": "Svelte frontend framework",
+            "user": "Frontend developer, experienced with React",
+            "expected": "explore",
+            "notes": "Smaller but growing, worth knowing about",
+        },
+    ]
+)
 
 
 # ============================================================================
 # RUN ALL TESTS
 # ============================================================================
 
-if __name__ == "__main__":
-    print("\n" + "🚀 AXIOM v0 - TEST SUITE" + "\n")
-    print("Running 5 edge case tests...")
-    print("=" * 80)
+print("\n" + "=" * 80)
+print("🚀 AXIOM v0 - COMPREHENSIVE TEST SUITE (30 TOPICS)")
+print("=" * 80)
+print(f"\nStarted: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+print(f"Total tests: {len(test_cases)}\n")
 
-    results = {
-        "test_1_normal": test_normal_topic(),
-        "test_2_hyped": test_hyped_topic(),
-        "test_3_irrelevant": test_irrelevant_topic(),
-        "test_4_unknown": test_unknown_topic(),
-        "test_5_vaporware": test_vaporware_topic(),
-    }
+results = []
+for test in test_cases:
+    result = test_topic(
+        test["category"],
+        test["name"],
+        test["topic"],
+        test["user"],
+        test["expected"],
+        test.get("notes", ""),
+    )
+    results.append(result)
 
-    print("\n" + "=" * 80)
-    print("✅ ALL TESTS COMPLETED")
-    print("=" * 80)
+# ============================================================================
+# CALCULATE RESULTS
+# ============================================================================
 
-    # Summary
-    print("\n📊 EXPECTED BEHAVIORS:")
-    print("- Test 1: 'explore' verdict with balanced reasoning ✓")
-    print("- Test 2: hype_score 7-9, framework churn risks ✓")
-    print("- Test 3: 'ignore' verdict (CURRENTLY FAILING - returns 'explore') ⚠️")
-    print("- Test 4: Low confidence, hedged language ✓")
-    print("- Test 5: Detect insufficient signal ✓")
+total_passed = sum(r["passed"] for r in results)
+total_tests = len(results)
+pass_rate = (total_passed / total_tests) * 100
 
-    print("\n🔧 KNOWN ISSUES:")
-    print("1. Node 3  say 'ignore' too much  tech")
-    print("2. Need to strengthen 'ignore' decision criteria in verdict prompt")
+print("\n" + "=" * 80)
+print(f"📊 FINAL RESULTS: {total_passed}/{total_tests} passed ({pass_rate:.1f}%)")
+print("=" * 80)
+
+# Breakdown by category
+categories = {}
+for r in results:
+    cat = r.get("category", "Unknown")
+    if cat not in categories:
+        categories[cat] = {"passed": 0, "total": 0}
+    categories[cat]["total"] += 1
+    if r["passed"]:
+        categories[cat]["passed"] += 1
+
+print("\n📂 BREAKDOWN BY CATEGORY:")
+for cat, stats in sorted(categories.items()):
+    rate = (stats["passed"] / stats["total"]) * 100
+    symbol = "✅" if rate >= 80 else "⚠️" if rate >= 60 else "❌"
+    print(f"   {symbol} {cat:15} {stats['passed']}/{stats['total']} ({rate:.0f}%)")
+
+# ============================================================================
+# SAVE RESULTS
+# ============================================================================
+
+output_dir = "test_results"
+os.makedirs(output_dir, exist_ok=True)
+
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+output_file = f"{output_dir}/comprehensive_test_{timestamp}.json"
+
+with open(output_file, "w") as f:
+    json.dump(
+        {
+            "timestamp": datetime.now().isoformat(),
+            "summary": {
+                "total_tests": total_tests,
+                "total_passed": total_passed,
+                "pass_rate": pass_rate,
+                "category_breakdown": categories,
+            },
+            "test_results": results,
+        },
+        f,
+        indent=2,
+    )
+
+print(f"\n💾 Results saved to: {output_file}")
+
+# ============================================================================
+# ASSESSMENT
+# ============================================================================
+
+print("\n" + "=" * 80)
+print("🎯 ASSESSMENT")
+print("=" * 80)
+
+if pass_rate >= 80:
+    print("\n✅ EXCELLENT - System is production-ready for v0 demo")
+    print("   → Core decision logic works across all categories")
+    print("   → Ready to move to Day 5: Opik tracing")
+    print("   → Minor failures are acceptable (edge cases, judgment calls)")
+elif pass_rate >= 70:
+    print("\n✅ GOOD - System works well with minor issues")
+    print("   → Review failed cases to identify patterns")
+    print("   → Consider small prompt tweaks")
+    print("   → Can proceed to Day 5 or do one more iteration")
+elif pass_rate >= 60:
+    print("\n⚠️ ACCEPTABLE - System functional but needs improvement")
+    print("   → Identify which categories are failing")
+    print("   → Fix prompts based on failure patterns")
+    print("   → Re-test before moving to Day 5")
+else:
+    print("\n❌ NEEDS WORK - System has fundamental issues")
+    print("   → Review failed cases carefully")
+    print("   → Consider architecture changes")
+    print("   → Do NOT proceed to Day 5 yet")
+
+# Show failed tests
+failed_tests = [r for r in results if not r["passed"]]
+if failed_tests:
+    print(f"\n❌ FAILED TESTS ({len(failed_tests)}):")
+    for test in failed_tests[:10]:  # Show first 10
+        if "error" in test:
+            print(f"   • {test['name']}: ERROR - {test['error']}")
+        else:
+            print(
+                f"   • {test['name']}: expected '{test['expected_verdict']}', got '{test['actual_verdict']}'"
+            )
+    if len(failed_tests) > 10:
+        print(f"   ... and {len(failed_tests) - 10} more (see JSON file)")
+
+print("\n" + "=" * 80 + "\n")
