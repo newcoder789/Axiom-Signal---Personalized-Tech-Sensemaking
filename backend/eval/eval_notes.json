@@ -1,0 +1,42 @@
+[
+    {
+        "category": "Vaporware",
+        "name": "Zero-Latency Consensus",
+        "topic": "Zero-latency distributed consensus protocol",
+        "user": "Distributed systems engineer",
+        "expected": "ignore",
+        "notes": "Violates CAP theorem, impossible claim"
+    },
+    {
+        "category": "Vaporware",
+        "name": "Quantum Router",
+        "topic": "Quantum-powered API routing",
+        "user": "Backend developer, building microservices",
+        "expected": "ignore",
+        "notes": "Quantum buzzword misapplied to routing"
+    },
+    {
+        "category": "Hyped",
+        "name": "Redis 7 AI Caching",
+        "topic": "Redis 7 for AI-driven caching",
+        "user": "Backend developer, optimizing API performance",
+        "expected": "cautious_accept",
+        "notes": "Real tech but marketing exaggerates AI relevance"
+    },
+    {
+        "category": "Solid",
+        "name": "Postgres Logical Replication",
+        "topic": "Postgres logical replication for analytics pipelines",
+        "user": "Data engineer",
+        "expected": "accept",
+        "notes": "Well-established, production-proven feature"
+    },
+    {
+        "category": "Speculative",
+        "name": "LLM Agents for DevOps",
+        "topic": "LLM agents managing CI/CD pipelines",
+        "user": "Platform engineer",
+        "expected": "explore",
+        "notes": "Early-stage tooling, unclear operational reliability"
+    }
+]

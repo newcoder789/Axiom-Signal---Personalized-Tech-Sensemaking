@@ -105,9 +105,11 @@ class AxiomState(BaseModel):
     signal: Optional[SignalFramingOutput] = None
     reality_check: Optional[RealityCheckOutput] = None
     verdict: Optional[VerdictOutput] = None
-    confidence_alignment: Optional[float] = None  
-
-
+    signal_evidence_alignment: Optional[float] = None  # signal.confidence vs evidence_strength
+    evidence_verdict_alignment: Optional[float] = None  # evidence_strength vs verdict.confidence
+    chain_coherence_score: Optional[float] = None      # overall alignment 0.0-1.0
+    contract_violation: Optional[bool] = False
+    violations: Optional[list[str]] = []
 # ============================================================================
 # LLM SETUP
 # ============================================================================
@@ -330,6 +332,27 @@ Return ONLY valid JSON.
     ]
 )
 
+'''general function to check vioalation in each nodes'''
+def check_contract(condition, reason, state):
+    if condition:
+        state["contract_violation"] = True
+        state["violations"].append(reason)
+
+
+def calculate_alignment(claimed_confidence: str, evidence_strength: float) -> float:
+    """Calculate alignment between confidence level and evidence strength.
+    
+    Range: 0.0 (misaligned) to 1.0 (perfectly aligned)
+    """
+    confidence_map = {"low": 0.3, "medium": 0.6, "high": 0.9}
+    claimed_value = confidence_map.get(claimed_confidence, 0.6)
+    
+    # Perfect alignment is when claimed == evidence
+    # Penalize divergence
+    divergence = abs(claimed_value - evidence_strength)
+    alignment = max(0.0, 1.0 - divergence)
+    
+    return round(alignment, 3)
 
 
 def signal_framing_node(state: AxiomState) -> AxiomState:
@@ -346,6 +369,14 @@ def signal_framing_node(state: AxiomState) -> AxiomState:
     )
 
     state.signal = SignalFramingOutput(**result)
+    
+    # Signal framing node - check for absolute certainty language
+    check_contract(
+        condition="guaranteed" in state.topic.lower(),
+        reason="Uses absolute certainty language",
+        state=state
+    )
+    
     return state
 
 
@@ -383,6 +414,24 @@ def reality_check_node(state: AxiomState) -> AxiomState:
     )
 
     state.reality_check = RealityCheckOutput(**result)
+    
+    # Calculate signal-evidence alignment
+    evidence_strength = evidence_strength_from_market(
+        state.reality_check.market_signal,
+        state.reality_check.hype_score
+    )
+    state.signal_evidence_alignment = calculate_alignment(
+        state.signal.confidence_level or "low",
+        evidence_strength
+    )
+    
+    # Reality check node - verify real-world adoption evidence
+    check_contract(
+        condition=state.reality_check.market_signal == "weak",
+        reason="No real-world adoption evidence",
+        state=state
+    )
+    
     return state
 
 
@@ -403,6 +452,30 @@ def verdict_node(state: AxiomState) -> AxiomState:
         )
         return state
 
+    # PRE-VERDICT CONTRACT CHECKS (before creating verdict)
+    hype = state.reality_check.hype_score
+    market = state.reality_check.market_signal
+    evidence_strength = evidence_strength_from_market(market, hype)
+    
+    # Check confidence alignment violation early
+    check_contract(
+        condition=state.signal.confidence_level == "high" and evidence_strength < 0.5,
+        reason="High confidence signal contradicts weak evidence strength",
+        state=state
+    )
+
+    # GATE: If violations exist, return ignore verdict immediately
+    if state.contract_violation:
+        state.verdict = VerdictOutput(
+            verdict="ignore",
+            reasoning="Contract violations detected during evaluation",
+            action_items=[f"• {v}" for v in state.violations],
+            timeline="wait 6+ months",
+            confidence="high"
+        )
+        return state
+
+    # Only create normal verdict if no violations
     parser = JsonOutputParser(pydantic_object=VerdictOutput)
     chain = VERDICT_PROMPT | llm | parser
 
@@ -416,20 +489,18 @@ def verdict_node(state: AxiomState) -> AxiomState:
 
     state.verdict = VerdictOutput(**result)
 
-    # Calculate confidence alignment metric
-    evidence_strength = 0.3
-    if state.reality_check.market_signal == "strong":
-        evidence_strength = 0.9
-    elif state.reality_check.market_signal == "mixed":
-        evidence_strength = 0.6
-
-    confidence_map = {"low": 0.3, "medium": 0.6, "high": 0.9}
-    confidence_value = confidence_map.get(state.verdict.confidence, 0.6)
-    confidence_alignment = min(evidence_strength / confidence_value, 1.0)
-
-    # Store metric for later retrieval
-    state.confidence_alignment = confidence_alignment
-
+    # Calculate evidence-verdict alignment
+    state.evidence_verdict_alignment = calculate_alignment(
+        state.verdict.confidence,
+        evidence_strength
+    )
+    
+    # Calculate overall chain coherence (average of both alignments)
+    state.chain_coherence_score = round(
+        (state.signal_evidence_alignment + state.evidence_verdict_alignment) / 2.0,
+        3
+    )
+        
     return state
 
 
@@ -459,6 +530,10 @@ opik_tracer = OpikTracer(tags=["axiom-v0", "day-5"])
 # ============================================================================
 # WRAPPER FUNCTION WITH OPIK TRACING
 # ============================================================================
+def evidence_strength_from_market(market_signal, hype_score):
+    base = {"weak": 0.2, "mixed": 0.6, "strong": 0.9}.get(market_signal, 0.3)
+    penalty = max(0.0, (hype_score - 6) / 10)
+    return max(0.0, base * (1 - penalty))
 
 
 @track(name="axiom_query", project_name="axiom-v0")
@@ -468,31 +543,37 @@ def run_axiom_query(topic: str, user_profile: str):
     This creates ONE unified trace with all nodes as spans
     """
     # Invoke the graph with Opik callback
-    result = app.invoke(
+    result_dict = app.invoke(
         {"topic": topic, "user_profile": user_profile},
         config={"callbacks": [opik_tracer]},
     )
 
+    # Convert dict to AxiomState for consistent access
+    result = AxiomState(**result_dict)
 
     opik_context.update_current_trace(
         feedback_scores=[
+            {"name": "signal_evidence_alignment", "value": result.signal_evidence_alignment},
+            {"name": "evidence_verdict_alignment", "value": result.evidence_verdict_alignment},
+            {"name": "chain_coherence_score", "value": result.chain_coherence_score},
             {
-                "name": "confidence_alignment",
-                "value": getattr(result, "confidence_alignment", 0.5),
-            }
+                "name": "contract_violation",
+                "value": float(result.contract_violation),
+            },  # 0.0 or 1.0
         ],
         metadata={
             "topic": topic,
-            "verdict": result["verdict"].verdict,
-            "market_signal": result["reality_check"].market_signal,
-            "hype_score": result["reality_check"].hype_score,
-            "timeline": result["verdict"].timeline,
-            "confidence": result["verdict"].confidence,
+            "verdict": result.verdict.verdict,
+            "market_signal": result.reality_check.market_signal,
+            "hype_score": result.reality_check.hype_score,
+            "timeline": result.verdict.timeline,
+            "confidence": result.verdict.confidence,
+            "signal_confidence": result.signal.confidence_level,
         },
-        thread_id="conversation_id_123"
+        thread_id="conversation_id_123",
     )
 
-    return result
+    return result_dict
 
 
 # ============================================================================
@@ -514,4 +595,9 @@ if __name__ == "__main__":
     print(f"Hype Score: {test_result['reality_check'].hype_score}")
     print(f"Verdict: {test_result['verdict'].verdict}")
     print(f"Timeline: {test_result['verdict'].timeline}")
+    print(f"\nAlignment Metrics:")
+    print(f"  Signal-Evidence Alignment: {test_result['signal_evidence_alignment']}")
+    print(f"  Evidence-Verdict Alignment: {test_result['evidence_verdict_alignment']}")
+    print(f"  Chain Coherence Score: {test_result['chain_coherence_score']}")
+    print(f"  Contract Violation: {test_result['contract_violation']}")
     print("=" * 80 + "\n")
