@@ -1,12 +1,9 @@
 """
-Axiom v0 - LangGraph Pipeline (Day 4 - Fixed Prompts)
+Axiom v0 - LangGraph Pipeline (Day 5 - Opik Tracing Fixed)
 3-node decision pipeline: Signal Framing → Reality Check → Verdict Synthesis
 
-Day 4 Status: Fixed verdict logic to not ignore everything
-Key changes:
-- Clarified market_signal meanings (mixed ≠ weak)
-- Better hype score calibration (established tech = 3-5, not 6)
-- Strengthened decision rules with concrete examples
+Day 5 Status: Opik tracing working with unified trace view
+Key fix: Proper callback configuration for LangGraph to show tree structure
 """
 
 from langgraph.graph import StateGraph, END
@@ -17,7 +14,11 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from dotenv import load_dotenv
 import os
+from opik import track
+from opik.integrations.langchain import OpikTracer
 
+    # Log metrics and metadata to Opik
+from opik import opik_context
 load_dotenv()
 
 # ============================================================================
@@ -104,6 +105,7 @@ class AxiomState(BaseModel):
     signal: Optional[SignalFramingOutput] = None
     reality_check: Optional[RealityCheckOutput] = None
     verdict: Optional[VerdictOutput] = None
+    confidence_alignment: Optional[float] = None  
 
 
 # ============================================================================
@@ -116,10 +118,6 @@ llm = ChatGroq(
     temperature=0.1,
 )
 
-
-# ============================================================================
-# PROMPTS (Fixed - Day 4)
-# ============================================================================
 
 SIGNAL_FRAMING_PROMPT = ChatPromptTemplate.from_messages(
     [
@@ -225,7 +223,7 @@ HYPE SCORE CALIBRATION:
 CRITICAL: Established tech (PostgreSQL, Docker, TypeScript) = hype score 3-5, NOT 6+
 
 ═══════════════════════════════════════════════════════════════
-FEASIBILITY ASSESSMENT:(according to users current conditoin or thier  surrounding evironment of team member, their skills, undrestanding, exppreience )
+FEASIBILITY ASSESSMENT:
 ═══════════════════════════════════════════════════════════════
 
 "high" = User can start TODAY (matches current stack, good docs)
@@ -249,8 +247,6 @@ risk_factors:
 Do NOT recommend actions.
 Do NOT soften risks.
 
-CRITICAL CALIBRATION EXAMPLES:
-
 These are "strong" (not "mixed"):
 - PostgreSQL, MySQL (most common production databases)
 - TypeScript (JavaScript standard in 2024+)
@@ -267,6 +263,7 @@ These are "mixed":
 
 If a technology is THE default choice for its category, it's "strong".
 If it's A legitimate choice but not THE default, it's "mixed".
+
 Return ONLY valid JSON.
 {format_instructions}""",
         )
@@ -315,7 +312,7 @@ Examples: COBOL for web, Quantum CSS, Blockchain for Git
 ═══════════════════════════════════════════════════════════════
 CRITICAL:
 ═══════════════════════════════════════════════════════════════
-feasibiltiy measured according to users current conditoin or thier  surrounding evironment of team member, their skills, undrestanding, exppreience.
+
 "mixed" market signal does NOT mean ignore!
 "mixed" often means "explore" or "pursue" depending on user context.
 
@@ -333,10 +330,6 @@ Return ONLY valid JSON.
     ]
 )
 
-
-# ============================================================================
-# NODE FUNCTIONS
-# ============================================================================
 
 
 def signal_framing_node(state: AxiomState) -> AxiomState:
@@ -422,12 +415,24 @@ def verdict_node(state: AxiomState) -> AxiomState:
     )
 
     state.verdict = VerdictOutput(**result)
+
+    # Calculate confidence alignment metric
+    evidence_strength = 0.3
+    if state.reality_check.market_signal == "strong":
+        evidence_strength = 0.9
+    elif state.reality_check.market_signal == "mixed":
+        evidence_strength = 0.6
+
+    confidence_map = {"low": 0.3, "medium": 0.6, "high": 0.9}
+    confidence_value = confidence_map.get(state.verdict.confidence, 0.6)
+    confidence_alignment = min(evidence_strength / confidence_value, 1.0)
+
+    # Store metric for later retrieval
+    state.confidence_alignment = confidence_alignment
+
     return state
 
 
-# ============================================================================
-# GRAPH ASSEMBLY
-# ============================================================================
 
 workflow = StateGraph(AxiomState)
 
@@ -447,23 +452,63 @@ workflow.set_entry_point("signal_framing")
 # Compile the graph
 app = workflow.compile()
 
+# Initialize Opik tracer
+opik_tracer = OpikTracer(tags=["axiom-v0", "day-5"])
+
+
+# ============================================================================
+# WRAPPER FUNCTION WITH OPIK TRACING
+# ============================================================================
+
+
+@track(name="axiom_query", project_name="axiom-v0")
+def run_axiom_query(topic: str, user_profile: str):
+    """
+    Main entry point for Axiom queries with Opik tracing
+    This creates ONE unified trace with all nodes as spans
+    """
+    # Invoke the graph with Opik callback
+    result = app.invoke(
+        {"topic": topic, "user_profile": user_profile},
+        config={"callbacks": [opik_tracer]},
+    )
+
+
+    opik_context.update_current_trace(
+        feedback_scores=[
+            {
+                "name": "confidence_alignment",
+                "value": getattr(result, "confidence_alignment", 0.5),
+            }
+        ],
+        metadata={
+            "topic": topic,
+            "verdict": result["verdict"].verdict,
+            "market_signal": result["reality_check"].market_signal,
+            "hype_score": result["reality_check"].hype_score,
+            "timeline": result["verdict"].timeline,
+            "confidence": result["verdict"].confidence,
+        },
+        thread_id="conversation_id_123"
+    )
+
+    return result
+
 
 # ============================================================================
 # QUICK TEST
 # ============================================================================
 
 if __name__ == "__main__":
-    test_result = app.invoke(
-        {
-            "topic": "PostgreSQL 16",
-            "user_profile": "Backend developer, 3 years experience, building data-heavy applications",
-        }
+    test_result = run_axiom_query(
+        topic="Redis 7 for caching",
+        user_profile="Backend developer, optimizing API performance",
     )
 
     print("\n" + "=" * 80)
     print("QUICK TEST OUTPUT:")
     print("=" * 80)
-    print(f"Topic: PostgreSQL 16")
+    print(f"Topic: Redis 7 for caching")
     print(f"Signal Status: {test_result['signal'].status}")
     print(f"Market Signal: {test_result['reality_check'].market_signal}")
     print(f"Hype Score: {test_result['reality_check'].hype_score}")
