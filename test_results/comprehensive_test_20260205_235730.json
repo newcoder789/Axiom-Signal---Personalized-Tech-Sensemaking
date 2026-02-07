@@ -1,0 +1,524 @@
+{
+  "timestamp": "2026-02-05T23:57:30.266551",
+  "summary": {
+    "total_tests": 30,
+    "total_passed": 17,
+    "pass_rate": 56.666666666666664,
+    "category_breakdown": {
+      "Hype Tech": {
+        "passed": 4,
+        "total": 6
+      },
+      "Dead Tech": {
+        "passed": 5,
+        "total": 6
+      },
+      "Vaporware": {
+        "passed": 6,
+        "total": 6
+      },
+      "Solid Tech": {
+        "passed": 0,
+        "total": 6
+      },
+      "Edge Cases": {
+        "passed": 2,
+        "total": 6
+      }
+    }
+  },
+  "test_results": [
+    {
+      "category": "Hype Tech",
+      "name": "Devin AI",
+      "topic": "Devin AI coding agent",
+      "user_profile": "Senior software engineer, interested in AI-assisted development",
+      "expected_verdict": "explore",
+      "actual_verdict": "ignore",
+      "passed": false,
+      "notes": "High hype but represents real trend in AI coding assistants",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "weak",
+        "hype_score": 8,
+        "feasibility": "low",
+        "reasoning": "Contract violations detected during evaluation",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Hype Tech",
+      "name": "AutoGPT",
+      "topic": "AutoGPT autonomous agents",
+      "user_profile": "AI/ML engineer, building LLM applications",
+      "expected_verdict": "explore",
+      "actual_verdict": "explore",
+      "passed": true,
+      "notes": "Overhyped but useful for understanding agent patterns",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 8,
+        "feasibility": "medium",
+        "reasoning": "The emerging technology has a medium feasibility and a mixed market signal, indicating that it's worth keeping on radar for further research. Given the short time horizon, it's essential to monitor its development and potential applications.",
+        "timeline": "in 3 months"
+      }
+    },
+    {
+      "category": "Hype Tech",
+      "name": "Web3 Development",
+      "topic": "Web3 development and dApps",
+      "user_profile": "Full-stack developer, curious about blockchain",
+      "expected_verdict": "explore",
+      "actual_verdict": "explore",
+      "passed": true,
+      "notes": "Unless crypto-focused, opportunity cost too high",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 8,
+        "feasibility": "medium",
+        "reasoning": "The technology is emerging with a hype score of 6, indicating moderate interest. The feasibility is medium, suggesting it's not yet widely adopted but has potential. Given the mixed market signal, it's essential to keep this on the radar for further research.",
+        "timeline": "in 3 months"
+      }
+    },
+    {
+      "category": "Hype Tech",
+      "name": "No-Code AI",
+      "topic": "No-code AI platform builders",
+      "user_profile": "Product manager, non-technical, wants to build AI features",
+      "expected_verdict": "explore",
+      "actual_verdict": "explore",
+      "passed": true,
+      "notes": "Appropriate for non-technical roles",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 7,
+        "feasibility": "medium",
+        "reasoning": "The technology is emerging with a mixed market signal, and the user should be aware of its potential. Given the short time horizon, it's essential to keep it on the radar for light research.",
+        "timeline": "in 3 months"
+      }
+    },
+    {
+      "category": "Hype Tech",
+      "name": "Edge AI",
+      "topic": "Edge AI and on-device models",
+      "user_profile": "Mobile developer, iOS/Android experience",
+      "expected_verdict": "explore",
+      "actual_verdict": "ignore",
+      "passed": false,
+      "notes": "Legitimate trend in mobile AI",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "weak",
+        "hype_score": 8,
+        "feasibility": "low",
+        "reasoning": "Contract violations detected during evaluation",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Hype Tech",
+      "name": "Quantum ML",
+      "topic": "Quantum machine learning",
+      "user_profile": "Data scientist, 3 years experience in ML",
+      "expected_verdict": "ignore",
+      "actual_verdict": "ignore",
+      "passed": true,
+      "notes": "Experimental, not production-ready",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "weak",
+        "hype_score": 8,
+        "feasibility": "low",
+        "reasoning": "Contract violations detected during evaluation",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Dead Tech",
+      "name": "CoffeeScript",
+      "topic": "CoffeeScript for new projects",
+      "user_profile": "Frontend developer, starting a new web app",
+      "expected_verdict": "ignore",
+      "actual_verdict": "ignore",
+      "passed": true,
+      "notes": "Superseded by modern JavaScript/TypeScript",
+      "outputs": {
+        "signal_status": "insufficient_signal",
+        "market_signal": "weak",
+        "hype_score": 0,
+        "feasibility": "low",
+        "reasoning": "The topic lacks sufficient public clarity or substance to justify investment of time.",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Dead Tech",
+      "name": "Backbone.js",
+      "topic": "Backbone.js for single-page apps",
+      "user_profile": "Frontend developer, building modern SPA",
+      "expected_verdict": "ignore",
+      "actual_verdict": "explore",
+      "passed": false,
+      "notes": "React/Vue/Angular are standard now",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 5,
+        "feasibility": "medium",
+        "reasoning": "The technology is emerging with a hype score of 7, and the market signal is mixed. This suggests that it's worth keeping on radar for further research, but not yet worth a deep dive.",
+        "timeline": "in 3 months"
+      }
+    },
+    {
+      "category": "Dead Tech",
+      "name": "AngularJS 1.x",
+      "topic": "AngularJS 1.x for new applications",
+      "user_profile": "Full-stack developer, needs to choose a frontend framework",
+      "expected_verdict": "ignore",
+      "actual_verdict": "ignore",
+      "passed": true,
+      "notes": "Angular 2+ or other modern frameworks preferred",
+      "outputs": {
+        "signal_status": "insufficient_signal",
+        "market_signal": "weak",
+        "hype_score": 0,
+        "feasibility": "low",
+        "reasoning": "The topic lacks sufficient public clarity or substance to justify investment of time.",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Dead Tech",
+      "name": "COBOL Web",
+      "topic": "COBOL for web development",
+      "user_profile": "Full-stack developer, wants to build modern SaaS",
+      "expected_verdict": "ignore",
+      "actual_verdict": "ignore",
+      "passed": true,
+      "notes": "Wrong tool for modern web development",
+      "outputs": {
+        "signal_status": "insufficient_signal",
+        "market_signal": "weak",
+        "hype_score": 0,
+        "feasibility": "low",
+        "reasoning": "The topic lacks sufficient public clarity or substance to justify investment of time.",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Dead Tech",
+      "name": "Flash",
+      "topic": "Adobe Flash for web animations",
+      "user_profile": "Frontend developer, needs interactive web content",
+      "expected_verdict": "ignore",
+      "actual_verdict": "ignore",
+      "passed": true,
+      "notes": "Deprecated, use CSS/Canvas/WebGL",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "weak",
+        "hype_score": 8,
+        "feasibility": "low",
+        "reasoning": "Contract violations detected during evaluation",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Dead Tech",
+      "name": "Perl CGI",
+      "topic": "Perl CGI scripts for web backends",
+      "user_profile": "Backend developer, building new web services",
+      "expected_verdict": "ignore",
+      "actual_verdict": "ignore",
+      "passed": true,
+      "notes": "Modern frameworks (FastAPI, Express) are standard",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "weak",
+        "hype_score": 8,
+        "feasibility": "low",
+        "reasoning": "Contract violations detected during evaluation",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Vaporware",
+      "name": "Quantum CSS",
+      "topic": "Quantum CSS Framework",
+      "user_profile": "Junior frontend developer, learning modern web development",
+      "expected_verdict": "ignore",
+      "actual_verdict": "ignore",
+      "passed": true,
+      "notes": "Made-up framework, no substance",
+      "outputs": {
+        "signal_status": "insufficient_signal",
+        "market_signal": "weak",
+        "hype_score": 0,
+        "feasibility": "low",
+        "reasoning": "The topic lacks sufficient public clarity or substance to justify investment of time.",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Vaporware",
+      "name": "NeuralFlux DB",
+      "topic": "NeuralFlux Database Engine",
+      "user_profile": "Backend engineer, working on data-intensive applications",
+      "expected_verdict": "ignore",
+      "actual_verdict": "ignore",
+      "passed": true,
+      "notes": "Vaporware database",
+      "outputs": {
+        "signal_status": "insufficient_signal",
+        "market_signal": "weak",
+        "hype_score": 0,
+        "feasibility": "low",
+        "reasoning": "The topic lacks sufficient public clarity or substance to justify investment of time.",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Vaporware",
+      "name": "Blockchain Git",
+      "topic": "Blockchain-powered version control",
+      "user_profile": "Software engineer, looking for better Git workflows",
+      "expected_verdict": "ignore",
+      "actual_verdict": "ignore",
+      "passed": true,
+      "notes": "Blockchain doesn't solve Git's actual problems",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "weak",
+        "hype_score": 8,
+        "feasibility": "low",
+        "reasoning": "Contract violations detected during evaluation",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Vaporware",
+      "name": "AI-Native Language",
+      "topic": "AI-native programming language",
+      "user_profile": "Software developer, 5 years experience",
+      "expected_verdict": "ignore",
+      "actual_verdict": "ignore",
+      "passed": true,
+      "notes": "Vague buzzword, no clear substance",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "weak",
+        "hype_score": 8,
+        "feasibility": "low",
+        "reasoning": "Contract violations detected during evaluation",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Vaporware",
+      "name": "Zero-Latency Consensus",
+      "topic": "Zero-latency distributed consensus protocol",
+      "user_profile": "Distributed systems engineer",
+      "expected_verdict": "ignore",
+      "actual_verdict": "ignore",
+      "passed": true,
+      "notes": "Violates CAP theorem, impossible claim",
+      "outputs": {
+        "signal_status": "insufficient_signal",
+        "market_signal": "weak",
+        "hype_score": 0,
+        "feasibility": "low",
+        "reasoning": "The topic lacks sufficient public clarity or substance to justify investment of time.",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Vaporware",
+      "name": "Quantum Router",
+      "topic": "Quantum-powered API routing",
+      "user_profile": "Backend developer, building microservices",
+      "expected_verdict": "ignore",
+      "actual_verdict": "ignore",
+      "passed": true,
+      "notes": "Quantum buzzword misapplied to routing",
+      "outputs": {
+        "signal_status": "insufficient_signal",
+        "market_signal": "weak",
+        "hype_score": 0,
+        "feasibility": "low",
+        "reasoning": "The topic lacks sufficient public clarity or substance to justify investment of time.",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Solid Tech",
+      "name": "PostgreSQL 16",
+      "topic": "PostgreSQL 16",
+      "user_profile": "Backend developer, 3 years experience, building data-heavy apps",
+      "expected_verdict": "pursue",
+      "actual_verdict": "explore",
+      "passed": false,
+      "notes": "Industry standard database",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 5,
+        "feasibility": "medium",
+        "reasoning": "The technology is emerging and has a mixed market signal, but it's worth keeping on radar for light research due to its potential and the user's profile aligning with it.",
+        "timeline": "in 3 months"
+      }
+    },
+    {
+      "category": "Solid Tech",
+      "name": "Redis 7",
+      "topic": "Redis 7 for caching",
+      "user_profile": "Backend developer, optimizing API performance",
+      "expected_verdict": "pursue",
+      "actual_verdict": "ignore",
+      "passed": false,
+      "notes": "Standard caching solution",
+      "outputs": {
+        "signal_status": "insufficient_signal",
+        "market_signal": "weak",
+        "hype_score": 0,
+        "feasibility": "low",
+        "reasoning": "The topic lacks sufficient public clarity or substance to justify investment of time.",
+        "timeline": "wait 6+ months"
+      }
+    },
+    {
+      "category": "Solid Tech",
+      "name": "Docker",
+      "topic": "Docker containers",
+      "user_profile": "Full-stack developer, wants to improve deployment",
+      "expected_verdict": "pursue",
+      "actual_verdict": "explore",
+      "passed": false,
+      "notes": "Essential DevOps skill",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 6,
+        "feasibility": "medium",
+        "reasoning": "The technology is emerging with a hype score of 6, indicating a mixed market signal. Given the medium feasibility and the user's profile aligning with the technology, it's recommended to keep it on the radar for light research.",
+        "timeline": "in 3 months"
+      }
+    },
+    {
+      "category": "Solid Tech",
+      "name": "FastAPI",
+      "topic": "FastAPI Python framework",
+      "user_profile": "Python developer, building REST APIs for a startup",
+      "expected_verdict": "pursue",
+      "actual_verdict": "explore",
+      "passed": false,
+      "notes": "Modern, well-adopted Python framework",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 5,
+        "feasibility": "medium",
+        "reasoning": "The technology is emerging with a medium feasibility and a mixed market signal. It's worth keeping on radar for light research.",
+        "timeline": "in 3 months"
+      }
+    },
+    {
+      "category": "Solid Tech",
+      "name": "TypeScript",
+      "topic": "TypeScript",
+      "user_profile": "Frontend developer, 2 years JavaScript experience",
+      "expected_verdict": "pursue",
+      "actual_verdict": "explore",
+      "passed": false,
+      "notes": "Industry standard for typed JavaScript",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 5,
+        "feasibility": "medium",
+        "reasoning": "The technology is emerging with a medium feasibility and a mixed market signal, indicating that it's worth keeping on radar for further research. The steep learning curve is a concern, but it's not a deal-breaker.",
+        "timeline": "in 3 months"
+      }
+    },
+    {
+      "category": "Solid Tech",
+      "name": "Nginx",
+      "error": "1 validation error for RealityCheckOutput\nevidence_summary\n  Field required [type=missing, input_value={'market_signal': 'weak',...formance and security']}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing",
+      "passed": false
+    },
+    {
+      "category": "Edge Cases",
+      "name": "Rust for Backends",
+      "error": "1 validation error for VerdictOutput\naction_items\n  List should have at least 2 items after validation, not 1 [type=too_short, input_value=['Consider using PostgreS...nd development instead'], input_type=list]\n    For further information visit https://errors.pydantic.dev/2.12/v/too_short",
+      "passed": false
+    },
+    {
+      "category": "Edge Cases",
+      "name": "Kubernetes for Startup",
+      "topic": "Kubernetes",
+      "user_profile": "DevOps engineer at 3-person startup",
+      "expected_verdict": "ignore",
+      "actual_verdict": "explore",
+      "passed": false,
+      "notes": "Overkill for small team, use simpler solutions",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 5,
+        "feasibility": "medium",
+        "reasoning": "The technology is emerging with a medium feasibility and a mixed market signal. This suggests that it's worth keeping on radar for further research, but it's not yet clear if it's worth pursuing deeply. The steep learning curve is a concern, but it's not a deal-breaker.",
+        "timeline": "in 3 months"
+      }
+    },
+    {
+      "category": "Edge Cases",
+      "name": "GraphQL",
+      "topic": "GraphQL",
+      "user_profile": "Backend developer, 3 years building REST APIs",
+      "expected_verdict": "explore",
+      "actual_verdict": "explore",
+      "passed": true,
+      "notes": "Legitimate alternative to REST",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 6,
+        "feasibility": "medium",
+        "reasoning": "The technology is emerging with a medium feasibility and a mixed market signal. It's worth keeping on radar for light research.",
+        "timeline": "in 3 months"
+      }
+    },
+    {
+      "category": "Edge Cases",
+      "name": "Tailwind CSS",
+      "topic": "Tailwind CSS",
+      "user_profile": "Frontend developer, comfortable with CSS",
+      "expected_verdict": "explore",
+      "actual_verdict": "explore",
+      "passed": true,
+      "notes": "Polarizing but widely adopted",
+      "outputs": {
+        "signal_status": "ok",
+        "market_signal": "mixed",
+        "hype_score": 6,
+        "feasibility": "medium",
+        "reasoning": "The technology is emerging with a medium feasibility and a mixed market signal. It's worth keeping on radar for light research.",
+        "timeline": "in 3 months"
+      }
+    },
+    {
+      "category": "Edge Cases",
+      "name": "Serverless",
+      "error": "1 validation error for VerdictOutput\naction_items\n  List should have at least 2 items after validation, not 1 [type=too_short, input_value=['Consider using PostgreS...nd development instead'], input_type=list]\n    For further information visit https://errors.pydantic.dev/2.12/v/too_short",
+      "passed": false
+    },
+    {
+      "category": "Edge Cases",
+      "name": "Svelte",
+      "error": "1 validation error for VerdictOutput\naction_items\n  List should have at least 2 items after validation, not 1 [type=too_short, input_value=['Consider using PostgreS...nd development instead'], input_type=list]\n    For further information visit https://errors.pydantic.dev/2.12/v/too_short",
+      "passed": false
+    }
+  ]
+}

@@ -1,0 +1,239 @@
+{
+  "timestamp": "2026-02-07T01:24:55.868240",
+  "results": [
+    {
+      "name": "Quantum ML",
+      "category": "Hype Tech",
+      "topic": "Quantum machine learning",
+      "user_profile": "Data scientist, 3 years experience in ML",
+      "expected": "ignore",
+      "error": "\"Input to ChatPromptTemplate is missing variables {'memory_context', 'feasibility', 'hype_score', 'market_signal', 'status'}.  Expected: ['feasibility', 'format_instructions', 'hype_score', 'market_signal', 'memory_context', 'reality_check', 'signal', 'status'] Received: ['signal', 'reality_check', 'format_instructions']\\nNote: if you intended {memory_context} to be part of the string and not a variable, please escape it with double curly braces like: '{{memory_context}}'.\\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/INVALID_PROMPT_INPUT \"",
+      "passed": false
+    },
+    {
+      "name": "CoffeeScript",
+      "category": "Dead Tech",
+      "topic": "CoffeeScript for new projects",
+      "user_profile": "Frontend developer, starting a new web app",
+      "expected": "ignore",
+      "error": "\"Input to ChatPromptTemplate is missing variables {'memory_context', 'feasibility', 'hype_score', 'market_signal', 'status'}.  Expected: ['feasibility', 'format_instructions', 'hype_score', 'market_signal', 'memory_context', 'reality_check', 'signal', 'status'] Received: ['signal', 'reality_check', 'format_instructions']\\nNote: if you intended {memory_context} to be part of the string and not a variable, please escape it with double curly braces like: '{{memory_context}}'.\\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/INVALID_PROMPT_INPUT \"",
+      "passed": false
+    },
+    {
+      "name": "Backbone.js",
+      "category": "Dead Tech",
+      "topic": "Backbone.js for single-page apps",
+      "user_profile": "Frontend developer, building modern SPA",
+      "expected": "ignore",
+      "actual": "ignore",
+      "passed": true,
+      "memory_context": "\n📊 TOPIC PATTERNS:\n• steep_learning\n  Based on 1 observations\n\n🕰️ SIMILAR PAST DECISIONS:\n🔍 Backbone.js for single-page apps → EXPLORE\n  (0 days ago)\n  Reason: The feasibility of this technology is low, but the market signal is mixed, which means it's worth ke..."
+    },
+    {
+      "name": "AngularJS 1.x",
+      "category": "Dead Tech",
+      "topic": "AngularJS 1.x for new applications",
+      "user_profile": "Full-stack developer, needs to choose a frontend framework",
+      "expected": "ignore",
+      "actual": "ignore",
+      "passed": true,
+      "memory_context": "\n📊 TOPIC PATTERNS:\n• steep_learning\n  Based on 1 observations\n• steep_learning\n  Based on 1 observations"
+    },
+    {
+      "name": "COBOL Web",
+      "category": "Dead Tech",
+      "topic": "COBOL for web development",
+      "user_profile": "Full-stack developer, wants to build modern SaaS",
+      "expected": "ignore",
+      "actual": "ignore",
+      "passed": true,
+      "memory_context": "\n📊 TOPIC PATTERNS:\n• steep_learning\n  Based on 1 observations\n• steep_learning\n  Based on 1 observations"
+    },
+    {
+      "name": "Flash",
+      "category": "Dead Tech",
+      "topic": "Adobe Flash for web animations",
+      "user_profile": "Frontend developer, needs interactive web content",
+      "expected": "ignore",
+      "actual": "ignore",
+      "passed": true,
+      "memory_context": "\n📊 TOPIC PATTERNS:\n• steep_learning\n  Based on 1 observations\n• steep_learning\n  Based on 1 observations"
+    },
+    {
+      "name": "Perl CGI",
+      "category": "Dead Tech",
+      "topic": "Perl CGI scripts for web backends",
+      "user_profile": "Backend developer, building new web services",
+      "expected": "ignore",
+      "actual": "ignore",
+      "passed": true,
+      "memory_context": "\n📊 TOPIC PATTERNS:\n• steep_learning\n  Based on 1 observations\n• steep_learning\n  Based on 1 observations"
+    },
+    {
+      "name": "Quantum CSS",
+      "category": "Vaporware",
+      "topic": "Quantum CSS Framework",
+      "user_profile": "Junior frontend developer, learning modern web development",
+      "expected": "ignore",
+      "actual": "ignore",
+      "passed": true,
+      "memory_context": "\n📊 TOPIC PATTERNS:\n• steep_learning\n  Based on 1 observations\n• steep_learning\n  Based on 1 observations"
+    },
+    {
+      "name": "NeuralFlux DB",
+      "category": "Vaporware",
+      "topic": "NeuralFlux Database Engine",
+      "user_profile": "Backend engineer, working on data-intensive applications",
+      "expected": "ignore",
+      "actual": "ignore",
+      "passed": true,
+      "memory_context": "\n📊 TOPIC PATTERNS:\n• steep_learning\n  Based on 1 observations\n• steep_learning\n  Based on 1 observations"
+    },
+    {
+      "name": "Blockchain Git",
+      "category": "Vaporware",
+      "topic": "Blockchain-powered version control",
+      "user_profile": "Software engineer, looking for better Git workflows",
+      "expected": "ignore",
+      "error": "\"Input to ChatPromptTemplate is missing variables {'memory_context', 'feasibility', 'hype_score', 'market_signal', 'status'}.  Expected: ['feasibility', 'format_instructions', 'hype_score', 'market_signal', 'memory_context', 'reality_check', 'signal', 'status'] Received: ['signal', 'reality_check', 'format_instructions']\\nNote: if you intended {memory_context} to be part of the string and not a variable, please escape it with double curly braces like: '{{memory_context}}'.\\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/INVALID_PROMPT_INPUT \"",
+      "passed": false
+    },
+    {
+      "name": "AI-Native Language",
+      "category": "Vaporware",
+      "topic": "AI-native programming language",
+      "user_profile": "Software developer, 5 years experience",
+      "expected": "ignore",
+      "error": "\"Input to ChatPromptTemplate is missing variables {'memory_context', 'feasibility', 'hype_score', 'market_signal', 'status'}.  Expected: ['feasibility', 'format_instructions', 'hype_score', 'market_signal', 'memory_context', 'reality_check', 'signal', 'status'] Received: ['signal', 'reality_check', 'format_instructions']\\nNote: if you intended {memory_context} to be part of the string and not a variable, please escape it with double curly braces like: '{{memory_context}}'.\\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/INVALID_PROMPT_INPUT \"",
+      "passed": false
+    },
+    {
+      "name": "Zero-Latency Consensus",
+      "category": "Vaporware",
+      "topic": "Zero-latency distributed consensus protocol",
+      "user_profile": "Distributed systems engineer",
+      "expected": "ignore",
+      "actual": "ignore",
+      "passed": true,
+      "memory_context": "\n📊 TOPIC PATTERNS:\n• steep_learning\n  Based on 1 observations\n• steep_learning\n  Based on 1 observations"
+    },
+    {
+      "name": "Quantum Router",
+      "category": "Vaporware",
+      "topic": "Quantum-powered API routing",
+      "user_profile": "Backend developer, building microservices",
+      "expected": "ignore",
+      "actual": "ignore",
+      "passed": true,
+      "memory_context": "\n📊 TOPIC PATTERNS:\n• steep_learning\n  Based on 1 observations\n• steep_learning\n  Based on 1 observations"
+    },
+    {
+      "name": "PostgreSQL 16",
+      "category": "Solid Tech",
+      "topic": "PostgreSQL 16",
+      "user_profile": "Backend developer, 3 years experience, building data-heavy apps",
+      "expected": "pursue",
+      "error": "\"Input to ChatPromptTemplate is missing variables {'memory_context', 'feasibility', 'hype_score', 'market_signal', 'status'}.  Expected: ['feasibility', 'format_instructions', 'hype_score', 'market_signal', 'memory_context', 'reality_check', 'signal', 'status'] Received: ['signal', 'reality_check', 'format_instructions']\\nNote: if you intended {memory_context} to be part of the string and not a variable, please escape it with double curly braces like: '{{memory_context}}'.\\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/INVALID_PROMPT_INPUT \"",
+      "passed": false
+    },
+    {
+      "name": "Redis 7",
+      "category": "Solid Tech",
+      "topic": "Redis 7 for caching",
+      "user_profile": "Backend developer, optimizing API performance",
+      "expected": "pursue",
+      "error": "\"Input to ChatPromptTemplate is missing variables {'memory_context', 'feasibility', 'hype_score', 'market_signal', 'status'}.  Expected: ['feasibility', 'format_instructions', 'hype_score', 'market_signal', 'memory_context', 'reality_check', 'signal', 'status'] Received: ['signal', 'reality_check', 'format_instructions']\\nNote: if you intended {memory_context} to be part of the string and not a variable, please escape it with double curly braces like: '{{memory_context}}'.\\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/INVALID_PROMPT_INPUT \"",
+      "passed": false
+    },
+    {
+      "name": "Docker",
+      "category": "Solid Tech",
+      "topic": "Docker containers",
+      "user_profile": "Full-stack developer, wants to improve deployment",
+      "expected": "pursue",
+      "error": "\"Input to ChatPromptTemplate is missing variables {'memory_context', 'feasibility', 'hype_score', 'market_signal', 'status'}.  Expected: ['feasibility', 'format_instructions', 'hype_score', 'market_signal', 'memory_context', 'reality_check', 'signal', 'status'] Received: ['signal', 'reality_check', 'format_instructions']\\nNote: if you intended {memory_context} to be part of the string and not a variable, please escape it with double curly braces like: '{{memory_context}}'.\\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/INVALID_PROMPT_INPUT \"",
+      "passed": false
+    },
+    {
+      "name": "FastAPI",
+      "category": "Solid Tech",
+      "topic": "FastAPI Python framework",
+      "user_profile": "Python developer, building REST APIs for a startup",
+      "expected": "pursue",
+      "error": "\"Input to ChatPromptTemplate is missing variables {'memory_context', 'feasibility', 'hype_score', 'market_signal', 'status'}.  Expected: ['feasibility', 'format_instructions', 'hype_score', 'market_signal', 'memory_context', 'reality_check', 'signal', 'status'] Received: ['signal', 'reality_check', 'format_instructions']\\nNote: if you intended {memory_context} to be part of the string and not a variable, please escape it with double curly braces like: '{{memory_context}}'.\\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/INVALID_PROMPT_INPUT \"",
+      "passed": false
+    },
+    {
+      "name": "TypeScript",
+      "category": "Solid Tech",
+      "topic": "TypeScript",
+      "user_profile": "Frontend developer, 2 years JavaScript experience",
+      "expected": "pursue",
+      "error": "\"Input to ChatPromptTemplate is missing variables {'memory_context', 'feasibility', 'hype_score', 'market_signal', 'status'}.  Expected: ['feasibility', 'format_instructions', 'hype_score', 'market_signal', 'memory_context', 'reality_check', 'signal', 'status'] Received: ['signal', 'reality_check', 'format_instructions']\\nNote: if you intended {memory_context} to be part of the string and not a variable, please escape it with double curly braces like: '{{memory_context}}'.\\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/INVALID_PROMPT_INPUT \"",
+      "passed": false
+    },
+    {
+      "name": "Nginx",
+      "category": "Solid Tech",
+      "topic": "Nginx reverse proxy",
+      "user_profile": "DevOps engineer, managing web infrastructure",
+      "expected": "pursue",
+      "error": "\"Input to ChatPromptTemplate is missing variables {'memory_context', 'feasibility', 'hype_score', 'market_signal', 'status'}.  Expected: ['feasibility', 'format_instructions', 'hype_score', 'market_signal', 'memory_context', 'reality_check', 'signal', 'status'] Received: ['signal', 'reality_check', 'format_instructions']\\nNote: if you intended {memory_context} to be part of the string and not a variable, please escape it with double curly braces like: '{{memory_context}}'.\\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/INVALID_PROMPT_INPUT \"",
+      "passed": false
+    },
+    {
+      "name": "Rust for Backends",
+      "category": "Edge Cases",
+      "topic": "Rust for backend web development",
+      "user_profile": "Senior backend engineer, 5 years Go/Python, interested in performance",
+      "expected": "explore",
+      "error": "\"Input to ChatPromptTemplate is missing variables {'memory_context', 'feasibility', 'hype_score', 'market_signal', 'status'}.  Expected: ['feasibility', 'format_instructions', 'hype_score', 'market_signal', 'memory_context', 'reality_check', 'signal', 'status'] Received: ['signal', 'reality_check', 'format_instructions']\\nNote: if you intended {memory_context} to be part of the string and not a variable, please escape it with double curly braces like: '{{memory_context}}'.\\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/INVALID_PROMPT_INPUT \"",
+      "passed": false
+    },
+    {
+      "name": "Kubernetes for Startup",
+      "category": "Edge Cases",
+      "topic": "Kubernetes",
+      "user_profile": "DevOps engineer at 3-person startup",
+      "expected": "ignore",
+      "error": "\"Input to ChatPromptTemplate is missing variables {'memory_context', 'feasibility', 'hype_score', 'market_signal', 'status'}.  Expected: ['feasibility', 'format_instructions', 'hype_score', 'market_signal', 'memory_context', 'reality_check', 'signal', 'status'] Received: ['signal', 'reality_check', 'format_instructions']\\nNote: if you intended {memory_context} to be part of the string and not a variable, please escape it with double curly braces like: '{{memory_context}}'.\\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/INVALID_PROMPT_INPUT \"",
+      "passed": false
+    },
+    {
+      "name": "GraphQL",
+      "category": "Edge Cases",
+      "topic": "GraphQL",
+      "user_profile": "Backend developer, 3 years building REST APIs",
+      "expected": "explore",
+      "error": "\"Input to ChatPromptTemplate is missing variables {'memory_context', 'feasibility', 'hype_score', 'market_signal', 'status'}.  Expected: ['feasibility', 'format_instructions', 'hype_score', 'market_signal', 'memory_context', 'reality_check', 'signal', 'status'] Received: ['signal', 'reality_check', 'format_instructions']\\nNote: if you intended {memory_context} to be part of the string and not a variable, please escape it with double curly braces like: '{{memory_context}}'.\\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/INVALID_PROMPT_INPUT \"",
+      "passed": false
+    },
+    {
+      "name": "Tailwind CSS",
+      "category": "Edge Cases",
+      "topic": "Tailwind CSS",
+      "user_profile": "Frontend developer, comfortable with CSS",
+      "expected": "explore",
+      "error": "\"Input to ChatPromptTemplate is missing variables {'memory_context', 'feasibility', 'hype_score', 'market_signal', 'status'}.  Expected: ['feasibility', 'format_instructions', 'hype_score', 'market_signal', 'memory_context', 'reality_check', 'signal', 'status'] Received: ['signal', 'reality_check', 'format_instructions']\\nNote: if you intended {memory_context} to be part of the string and not a variable, please escape it with double curly braces like: '{{memory_context}}'.\\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/INVALID_PROMPT_INPUT \"",
+      "passed": false
+    },
+    {
+      "name": "Serverless",
+      "category": "Edge Cases",
+      "topic": "AWS Lambda serverless functions",
+      "user_profile": "Full-stack developer, building a new product",
+      "expected": "explore",
+      "error": "\"Input to ChatPromptTemplate is missing variables {'memory_context', 'feasibility', 'hype_score', 'market_signal', 'status'}.  Expected: ['feasibility', 'format_instructions', 'hype_score', 'market_signal', 'memory_context', 'reality_check', 'signal', 'status'] Received: ['signal', 'reality_check', 'format_instructions']\\nNote: if you intended {memory_context} to be part of the string and not a variable, please escape it with double curly braces like: '{{memory_context}}'.\\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/INVALID_PROMPT_INPUT \"",
+      "passed": false
+    },
+    {
+      "name": "Svelte",
+      "category": "Edge Cases",
+      "topic": "Svelte frontend framework",
+      "user_profile": "Frontend developer, experienced with React",
+      "expected": "explore",
+      "error": "\"Input to ChatPromptTemplate is missing variables {'memory_context', 'feasibility', 'hype_score', 'market_signal', 'status'}.  Expected: ['feasibility', 'format_instructions', 'hype_score', 'market_signal', 'memory_context', 'reality_check', 'signal', 'status'] Received: ['signal', 'reality_check', 'format_instructions']\\nNote: if you intended {memory_context} to be part of the string and not a variable, please escape it with double curly braces like: '{{memory_context}}'.\\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/INVALID_PROMPT_INPUT \"",
+      "passed": false
+    }
+  ]
+}

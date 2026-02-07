@@ -171,7 +171,7 @@ class MemoryPolicyEngine:
                 # Don't store low-confidence ignores
                 return False, PolicyResult.LOW_CONFIDENCE
 
-        # Store all other valid verdicts (pursue, explore)
+        # Store all other valid verdicts (pursue, explore, watchlist)
         return True, PolicyResult.APPROVED
 
     def _check_universal_gates(

@@ -7,7 +7,7 @@ Memory integration status: Full LTM/STM cycle implemented
 
 from langgraph.graph import StateGraph, END
 from pydantic import BaseModel, Field
-from typing import Optional, Literal, Any, Dict #, List
+from typing import Optional, Literal, Any, Dict, List
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
@@ -93,18 +93,17 @@ class RealityCheckOutput(BaseModel):
     """Output schema for Node 2: Reality Check"""
 
     feasibility: Literal["low", "medium", "high"] = Field(
-        ..., description="How feasible is this for the user's background"
+        "medium", description="How feasible is this for the user's background"
     )
     market_signal: Literal["weak", "mixed", "strong"] = Field(
-        ..., description="Community/market adoption signal strength"
+        "mixed", description="Community/market adoption signal strength", 
     )
     risk_factors: list[str] = Field(
-        ..., description="2-4 specific risks or concerns", min_length=2, max_length=4
+        ..., description="2-4 specific risks or concerns"
     )
     known_unknowns: list[str] = Field(
-        ...,
-        description="1-3 things we don't know but should",
-        min_length=1,
+        default_factory=list,
+        description="0-3 things we don't know but should",
         max_length=3,
     )
     hype_score: int = Field(
@@ -115,11 +114,15 @@ class RealityCheckOutput(BaseModel):
     )
 
 
+# Verdict bucket: watchlist = "Model unsure, signals emerging, do NOT decay or upgrade yet"
+VERDICT_LITERAL = Literal["pursue", "explore", "watchlist", "ignore"]
+
+
 class VerdictOutput(BaseModel):
     """Output schema for Node 3: Verdict Synthesis"""
 
-    verdict: Literal["pursue", "explore", "ignore"] = Field(
-        ..., description="Clear decision: pursue, explore, or ignore"
+    verdict: VERDICT_LITERAL = Field(
+        ..., description="Decision: pursue, explore, watchlist (uncertain), or ignore"
     )
     reasoning: str = Field(
         ..., description="2-3 sentences explaining the verdict clearly"
@@ -127,7 +130,7 @@ class VerdictOutput(BaseModel):
     action_items: list[str] = Field(
         ..., description="2-4 specific, testable next steps", min_length=2, max_length=4
     )
-    timeline: Literal["now", "in 3 months", "wait 6+ months"] = Field(
+    timeline: Literal["now", "in 3 months", "wait 6+ months", "re-evaluate in 3 months"] = Field(
         ..., description="When to act on this"
     )
     confidence: Literal["low", "medium", "high"] = Field(
@@ -154,7 +157,11 @@ class AxiomState(BaseModel):
     evidence_verdict_alignment: Optional[float] = None
     chain_coherence_score: Optional[float] = None
     contract_violation: Optional[bool] = False
-    violations: Optional[list[str]] = []
+    violations: list[str] = Field(default_factory=list)  # FIXED: Use Field with default_factory for proper initialization
+
+    # Sensemaking: model prior vs external reality (Step 1)
+    # When True, model said "weak/insufficient" but market/feasibility suggest otherwise → do NOT downgrade to ignore
+    knowledge_gap: bool = False
 
 
 # ============================================================================
@@ -193,7 +200,15 @@ def derive_user_id(user_profile: str) -> str:
     # return "user_id_Byomkesh_Bakshi"
 
 def calculate_memory_relevance(memory_context) -> float:
-    """Calculate relevance score for memory context (0-1)"""
+    """
+    Calculate relevance score for memory context (0-1).
+    
+    Edge cases handled:
+    - None/empty memory_context → 0.0
+    - Division by zero protection (weight == 0) → 0.0
+    - Missing attributes → gracefully handled
+    - Empty lists → weight not added, preventing division issues
+    """
     if not memory_context:
         return 0.0
 
@@ -201,24 +216,33 @@ def calculate_memory_relevance(memory_context) -> float:
     weight = 0.0
 
     # Score based on number of relevant memories
+    # Only add weight if list exists AND has items (prevents division by zero)
     if hasattr(memory_context, "user_traits") and memory_context.user_traits:
-        relevance += min(len(memory_context.user_traits) * 0.2, 0.4)
-        weight += 0.4
+        trait_count = len(memory_context.user_traits) if isinstance(memory_context.user_traits, list) else 0
+        if trait_count > 0:
+            relevance += min(trait_count * 0.2, 0.4)
+            weight += 0.4
 
     if hasattr(memory_context, "topic_patterns") and memory_context.topic_patterns:
-        relevance += min(len(memory_context.topic_patterns) * 0.3, 0.4)
-        weight += 0.4
+        pattern_count = len(memory_context.topic_patterns) if isinstance(memory_context.topic_patterns, list) else 0
+        if pattern_count > 0:
+            relevance += min(pattern_count * 0.3, 0.4)
+            weight += 0.4
 
     if (
         hasattr(memory_context, "similar_decisions")
         and memory_context.similar_decisions
     ):
-        relevance += min(len(memory_context.similar_decisions) * 0.1, 0.2)
-        weight += 0.2
+        decision_count = len(memory_context.similar_decisions) if isinstance(memory_context.similar_decisions, list) else 0
+        if decision_count > 0:
+            relevance += min(decision_count * 0.1, 0.2)
+            weight += 0.2
 
+    # FIXED: Explicit check to prevent division by zero
     if weight > 0:
-        print("memory reference is being calculated as:", relevance/ weight)
-        return round(relevance / weight, 2)
+        score = round(relevance / weight, 2)
+        print(f"memory reference is being calculated as: {relevance}/{weight} = {score}")
+        return score
     return 0.0
 
 
@@ -260,37 +284,56 @@ def memory_context_node(state: AxiomState) -> AxiomState:
         )
 
         # Debug: Show what we found
+        # FIXED: Add null safety checks for memory_context attributes
         print("📦 Memory context found:")
-        print(f"   User traits: {len(memory_context.user_traits)}")
-        print(f"   Topic patterns: {len(memory_context.topic_patterns)}")
-        print(f"   Similar decisions: {len(memory_context.similar_decisions)}")
+        trait_count = len(memory_context.user_traits) if hasattr(memory_context, "user_traits") and memory_context.user_traits else 0
+        pattern_count = len(memory_context.topic_patterns) if hasattr(memory_context, "topic_patterns") and memory_context.topic_patterns else 0
+        decision_count = len(memory_context.similar_decisions) if hasattr(memory_context, "similar_decisions") and memory_context.similar_decisions else 0
+        
+        print(f"   User traits: {trait_count}")
+        print(f"   Topic patterns: {pattern_count}")
+        print(f"   Similar decisions: {decision_count}")
 
         # Show details of what was found
-        if memory_context.similar_decisions:
+        if hasattr(memory_context, "similar_decisions") and memory_context.similar_decisions:
             print("   Recent decisions:")
-            for i, decision in enumerate(memory_context.similar_decisions[:3]):
-                print(
-                    f"     {i + 1}. {decision.get('topic', 'N/A')} -> {decision.get('verdict', 'N/A')}"
-                )
+            try:
+                for i, decision in enumerate(memory_context.similar_decisions[:3]):
+                    if isinstance(decision, dict):
+                        print(
+                            f"     {i + 1}. {decision.get('topic', 'N/A')} -> {decision.get('verdict', 'N/A')}"
+                        )
+            except (TypeError, AttributeError) as e:
+                print(f"     ⚠️  Error displaying decisions: {e}")
 
         # Store in state
-        state.memory_context = (
-            memory_context.__dict__ if hasattr(memory_context, "__dict__") else {}
-        )
-        state.memory_hints = memory_context.to_prompt_string()
+        # FIXED: Better error handling for state storage
+        try:
+            state.memory_context = (
+                memory_context.__dict__ if hasattr(memory_context, "__dict__") else {}
+            )
+            state.memory_hints = memory_context.to_prompt_string() if hasattr(memory_context, "to_prompt_string") else "No relevant memories found."
+        except (AttributeError, TypeError) as e:
+            print(f"⚠️  Error storing memory context: {e}")
+            state.memory_context = {}
+            state.memory_hints = "Error loading memory context"
 
         # Calculate relevance score
-        state.memory_relevance_score = calculate_memory_relevance(memory_context)
-
-        print(f"🧠 Memory relevance score: {state.memory_relevance_score}")
+        try:
+            state.memory_relevance_score = calculate_memory_relevance(memory_context)
+            print(f"🧠 Memory relevance score: {state.memory_relevance_score}")
+        except Exception as e:
+            print(f"⚠️  Error calculating memory relevance: {e}")
+            state.memory_relevance_score = 0.0
 
     except Exception as e:
         print(f"⚠️  Error loading memory context: {e}")
         import traceback
-
         traceback.print_exc()
+        # FIXED: Ensure state is always in valid state even on error
         state.memory_hints = "Error loading memory context"
         state.memory_relevance_score = 0.0
+        state.memory_context = {}
 
     return state
 
@@ -343,13 +386,13 @@ If the topic appears invented, hyped without substance, or poorly defined:
 
 Return ONLY valid JSON matching the schema.
 No markdown. No commentary.
-
 {format_instructions}""",
         ),
         (
             "human",
             """Topic: {topic}
 User Profile: {user_profile}
+Memory context: {memory_context}
 
 Extract and categorize this signal.""",
         ),
@@ -362,15 +405,50 @@ def signal_framing_node(state: AxiomState) -> AxiomState:
     parser = JsonOutputParser(pydantic_object=SignalFramingOutput)
     chain = SIGNAL_FRAMING_PROMPT | llm | parser
 
-    result = chain.invoke(
-        {
-            "topic": state.topic,
-            "user_profile": state.user_profile,
-            "format_instructions": parser.get_format_instructions(),
-        }
-    )
+    # Escape braces in format_instructions to avoid accidental template parsing
+    fi = parser.get_format_instructions().replace("{", "{{").replace("}", "}}")
 
-    state.signal = SignalFramingOutput(**result)
+    # FIXED: Add comprehensive error handling for LLM invocation
+    try:
+        result = chain.invoke(
+            {
+                "topic": state.topic or "",
+                "user_profile": state.user_profile or "",
+                "format_instructions": fi,
+                "memory_context": state.memory_hints or "No relevant memories found.",
+            }
+        )
+    except Exception as e:
+        print(f"⚠️  Error in signal_framing LLM invocation: {e}")
+        import traceback
+        traceback.print_exc()
+        # FIXED: Provide safe fallback result on error
+        result = {
+            "status": "insufficient_signal",
+            "signal_summary": None,
+            "domain": None,
+            "time_horizon": None,
+            "confidence_level": "low",
+            "user_context_summary": f"Error during signal analysis: {str(e)[:100]}",
+        }
+
+    # FIXED: Validate and set defaults before creating SignalFramingOutput
+    result.setdefault("status", "insufficient_signal")
+    result.setdefault("user_context_summary", "Unable to analyze user context")
+    
+    try:
+        state.signal = SignalFramingOutput(**result)
+    except Exception as e:
+        print(f"⚠️  Error creating SignalFramingOutput: {e}")
+        # FIXED: Create minimal valid signal on error
+        state.signal = SignalFramingOutput(
+            status="insufficient_signal",
+            signal_summary=None,
+            domain=None,
+            time_horizon=None,
+            confidence_level="low",
+            user_context_summary="Error during signal framing",
+        )
 
     # Memory-informed adjustments (if available)
     if state.memory_hints and state.memory_hints != "No relevant memories found.":
@@ -403,8 +481,11 @@ REALITY_CHECK_PROMPT = ChatPromptTemplate.from_messages(
 
 You evaluate feasibility and hype WITHOUT optimism or politeness.
 
+Topic: {topic}
 Input signal:
 {signal_summary}
+
+When status is "insufficient_signal", you may only have the topic name; still assess market adoption and feasibility from the topic (e.g. PostgreSQL 16, Redis 7 = strong).
 
 Context:
 - Domain: {domain}
@@ -412,6 +493,7 @@ Context:
 - Signal confidence: {confidence_level}
 - Signal status: {status}
 - User background: {user_context_summary}
+ - Memory context: {memory_context}
 
 ═══════════════════════════════════════════════════════════════
 MARKET SIGNAL CALIBRATION (use these benchmarks):
@@ -467,61 +549,116 @@ Do NOT soften risks.
 
 These are "strong" (not "mixed"):
 - PostgreSQL, MySQL (most common production databases)
-- TypeScript (JavaScript standard in 2024+)
+- TypeScript (JavaScript standard in 2024+, used by major companies)
 - Docker, Kubernetes (container standards)
 - Nginx, Apache (web server standards)
 - React, Vue (dominant frontend frameworks)
 - Python, Go, Rust for backends
+- FastAPI (THE modern Python async framework, widely adopted in production)
+- AWS, GCP, Azure (cloud platform standards)
+
+CRITICAL: If a technology is THE default or industry-standard choice for its category, it MUST be "strong", not "mixed".
+TypeScript = JavaScript standard → "strong"
+FastAPI = Modern Python async standard → "strong"
 
 These are "mixed":
 - Svelte, Solid.js (growing but not dominant)
 - GraphQL (used but REST still more common)
 - Deno (exists but Node.js dominates)
-- FastAPI (popular in Python but not universal)
+- Flask (legitimate but FastAPI/Django more common for new projects)
 
 If a technology is THE default choice for its category, it's "strong".
 If it's A legitimate choice but not THE default, it's "mixed".
 
+CRITICAL OUTPUT RULES:
+- You MUST return valid JSON only.
+- Every field in the schema is REQUIRED.
+- Lists MUST always be arrays, even if empty.
+- Do NOT explain instructions inside values.
+- Do NOT return natural language outside fields.
+You MUST return ALL fields in the schema.
+
+If unsure, use:
+- feasibility = "medium"
+- market_signal = "mixed"
+- hype_score = 5
+- risk_factors = []
+- known_unknowns = []
+
+risk_factors:
+- MUST be a list of short, concrete risks.
+- NEVER a sentence or paragraph.
+
+known_unknowns:
+- MUST be a list.
+- Use [] if none are known.
 Return ONLY valid JSON.
-{format_instructions}""",
+{format_instructions}
+""",
         )
     ]
 )
 
 
 def reality_check_node(state: AxiomState) -> AxiomState:
-    """Node 2: Assess feasibility and detect hype (memory-informed)"""
-
-    # Short-circuit if signal is insufficient
-    if state.signal.status == "insufficient_signal":
-        state.reality_check = RealityCheckOutput(
-            feasibility="low",
-            market_signal="weak",
-            risk_factors=[
-                "Topic lacks clear definition or consensus",
-                "Insufficient information to assess viability",
-            ],
-            known_unknowns=["Unclear what the topic actually represents"],
-            hype_score=0,
-            evidence_summary="Insufficient signal to assess feasibility",
-        )
-        return state
+    """Node 2: Assess feasibility and detect hype (memory-informed).
+    Always run LLM (no short-circuit when signal insufficient) so we get market_signal
+    for established tech; verdict node uses this to detect knowledge_gap (model prior weak vs market strong).
+    """
 
     parser = JsonOutputParser(pydantic_object=RealityCheckOutput)
     chain = REALITY_CHECK_PROMPT | llm | parser
 
-    result = chain.invoke(
+    fi = parser.get_format_instructions().replace("{", "{{").replace("}", "}}")
+
+    # FIXED: Add error handling for LLM invocation
+    try:
+        result = chain.invoke(
         {
+            "topic": state.topic or "",
             "status": state.signal.status,
-            "signal_summary": state.signal.signal_summary,
+            "signal_summary": state.signal.signal_summary if state.signal.signal_summary else f"Topic only (signal framing insufficient): {state.topic}",
             "domain": state.signal.domain,
             "time_horizon": state.signal.time_horizon,
             "user_context_summary": state.signal.user_context_summary,
             "confidence_level": state.signal.confidence_level,
-            "format_instructions": parser.get_format_instructions(),
+            "format_instructions": fi,
+            "memory_context": state.memory_hints or "No relevant memories found.",
         }
     )
+    except Exception as e:
+        print(f"⚠️  Error in reality_check LLM invocation: {e}")
+        import traceback
+        traceback.print_exc()
+        # Fallback handling for missing fields
+        result = {
+            "feasibility": "medium",
+            "market_signal": "mixed",
+            "hype_score": 5,
+            "risk_factors": [],
+            "known_unknowns": [],
+            "evidence_summary": "Assessment based on general ecosystem patterns and industry knowledge, not direct evidence",
+        }
 
+    # Fallback handling for missing fields
+    result.setdefault("feasibility", "medium")
+    result.setdefault("market_signal", "mixed")
+    result.setdefault("hype_score", 5)
+    result.setdefault("risk_factors", [])
+    result.setdefault("known_unknowns", [])
+    result.setdefault("evidence_summary", "Assessment based on general ecosystem patterns and industry knowledge, not direct evidence")
+
+    # Ensure list types
+    if isinstance(result["risk_factors"], str):
+        result["risk_factors"] = [result["risk_factors"]]
+
+    if isinstance(result["known_unknowns"], str):
+        result["known_unknowns"] = [result["known_unknowns"]]
+    
+    # Ensure known_unknowns is a list (can be empty)
+    if not isinstance(result["known_unknowns"], list):
+        result["known_unknowns"] = []
+    
     state.reality_check = RealityCheckOutput(**result)
 
     # Memory-informed adjustments
@@ -558,54 +695,51 @@ BASE_VERDICT_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            """You are a blunt, opinionated career decision advisor.
+            """You are a Scout: curious, trend-sensitive, tolerant of uncertainty. Your job is sensemaking, not judging.
 
 Inputs:
-Signal: {signal}
-Reality check: {reality_check}
+Status: {status}
+Feasibility: {feasibility}
+Market Signal: {market_signal}
+Hype Score: {hype_score}
+Memory context: {memory_context}
 
 ═══════════════════════════════════════════════════════════════
-DECISION RULES:
+DECISION BUCKETS (four options: pursue | explore | watchlist | ignore)
 ═══════════════════════════════════════════════════════════════
 
 PURSUE = Worth learning deeply NOW
 - feasibility = "high" OR "medium"
-- market_signal = "strong" OR "mixed" (mixed = real but not universal)
-- User profile aligns with technology
-- Technology is established (time_horizon = "medium" or "long")
-
-Examples: PostgreSQL for backend dev, Docker for full-stack, TypeScript for frontend
+- market_signal = "strong" OR "mixed"
+- User profile aligns; technology is established (time_horizon = "medium" or "long")
 
 EXPLORE = Keep on radar, light research
-- feasibility = "medium"
-- market_signal = "mixed"
-- Technology is emerging (time_horizon = "short")
-- OR: hype_score > 6 AND user should be aware
+- feasibility = "medium" AND market_signal = "mixed"
+- OR: emerging tech (time_horizon = "short") AND market_signal = "mixed"
+- If feasibility = "low" BUT market_signal = "mixed" → EXPLORE (not ignore)
 
-Examples: Rust for senior engineer, LangGraph for AI/ML engineer
+WATCHLIST = Model unsure, signals emerging; do NOT decay or upgrade yet
+- Newer versions of established tech (e.g. Redis 7, Postgres 16) when model prior is lagging
+- time_horizon = "short" AND market_signal = "mixed" or "strong" → prefer WATCHLIST over ignore
+- Low evidence + uncertain → WATCHLIST (intellectual honesty; re-evaluate later)
+- timeline = "re-evaluate in 3 months"
 
 IGNORE = Not worth time, clear opportunity cost
-- feasibility = "low" AND market_signal = "weak"
+- REQUIRES: feasibility = "low" AND market_signal = "weak" (BOTH)
 - OR: Obsolete for stated goals (COBOL for modern SaaS)
-- OR: status = "insufficient_signal" (vaporware)
-- OR: hype_score > 8 AND feasibility = "low"
-
-Examples: COBOL for web, Quantum CSS, Blockchain for Git
+- OR: vaporware / status = "insufficient_signal" with weak market
+- OR: hype_score > 8 AND feasibility = "low" AND market_signal = "weak"
 
 ═══════════════════════════════════════════════════════════════
-CRITICAL:
+SCOUT RULES:
 ═══════════════════════════════════════════════════════════════
 
-"mixed" market signal does NOT mean ignore!
-"mixed" often means "explore" or "pursue" depending on user context.
+⚠️ "mixed" market signal does NOT mean ignore!
+⚠️ When in doubt between ignore and watchlist → choose WATCHLIST (tolerate uncertainty).
+⚠️ New/recent tech (short time horizon) + mixed/strong market → WATCHLIST, not ignore.
+⚠️ IGNORE only when BOTH feasibility = "low" AND market_signal = "weak".
 
-Action items must be concrete:
-✅ "Build a CRUD app using FastAPI"
-✅ "Read PostgreSQL 16 release notes"
-❌ "Learn more about X"
-❌ "Study fundamentals"
-
-If "ignore": state opportunity cost, suggest alternative.
+Action items must be concrete. If "ignore": state opportunity cost. If "watchlist": suggest re-evaluate in 3 months.
 
 Return ONLY valid JSON.
 {format_instructions}""",
@@ -615,10 +749,49 @@ Return ONLY valid JSON.
 
 
 def verdict_node(state: AxiomState) -> AxiomState:
-    """Node 3: Synthesize verdict with memory integration"""
+    """Node 3: Synthesize verdict with memory integration (Scout: tolerate uncertainty, use watchlist)."""
 
-    # Short-circuit if signal is insufficient
-    if state.signal.status == "insufficient_signal":
+    # PRE-VERDICT: Ensure reality_check exists (we now always run it, but defensive)
+    if not state.reality_check:
+        # Fallback if reality_check is missing (shouldn't happen, but defensive)
+        state.reality_check = RealityCheckOutput(
+            feasibility="low",
+            market_signal="weak",
+            risk_factors=["Missing reality check data"],
+            known_unknowns=[],
+            hype_score=0,
+            evidence_summary="Reality check data unavailable",
+        )
+
+    # Step 1: Separate model prior from external reality — flag knowledge_gap when they disagree
+    # Model prior weak (insufficient_signal) but market strong/mixed → do NOT downgrade to ignore
+    state.knowledge_gap = (
+        state.signal is not None
+        and state.signal.status == "insufficient_signal"
+        and state.reality_check is not None
+        and state.reality_check.market_signal in ("strong", "mixed")
+    )
+    if state.knowledge_gap:
+        print("📌 KNOWLEDGE GAP: model prior weak but market signal strong/mixed → bias watchlist (no decay)")
+
+    hype = state.reality_check.hype_score
+    market = state.reality_check.market_signal
+    evidence_strength = evidence_strength_from_market(market, hype)
+
+    # Short-circuit: insufficient_signal → watchlist if knowledge_gap, else ignore
+    if state.signal and state.signal.status == "insufficient_signal":
+        if state.knowledge_gap:
+            state.verdict = VerdictOutput(
+                verdict="watchlist",
+                reasoning="Model knowledge is lagging but market evidence suggests this is established or emerging. Do not decay or upgrade yet; re-evaluate with fresher sources.",
+                action_items=[
+                    "Re-evaluate when external evidence (docs, adoption) is available",
+                    "Do not ignore based on model prior alone",
+                ],
+                timeline="re-evaluate in 3 months",
+                confidence="low",
+            )
+            return state
         state.verdict = VerdictOutput(
             verdict="ignore",
             reasoning="The topic lacks sufficient public clarity or substance to justify investment of time.",
@@ -627,45 +800,99 @@ def verdict_node(state: AxiomState) -> AxiomState:
                 "Focus on established technologies with proven value",
             ],
             timeline="wait 6+ months",
-            confidence="high",
+            confidence="low",
         )
         return state
 
     # PRE-VERDICT CONTRACT CHECKS (before creating verdict)
-    hype = state.reality_check.hype_score
-    market = state.reality_check.market_signal
-    evidence_strength = evidence_strength_from_market(market, hype)
+    if state.signal:
+        signal_confidence = state.signal.confidence_level or "low"
+        
+        # Contract 1: High confidence signal contradicts weak evidence
+        check_contract(
+            condition=signal_confidence == "high" and evidence_strength < 0.5,
+            reason="High confidence signal contradicts weak evidence strength",
+            state=state,
+        )
+        
+        # Contract 2: Insufficient signal should NEVER have high confidence
+        check_contract(
+            condition=state.signal.status == "insufficient_signal" and signal_confidence == "high",
+            reason="Insufficient signal cannot have high confidence",
+            state=state,
+        )
 
-    # Check confidence alignment violation early
-    check_contract(
-        condition=state.signal.confidence_level == "high" and evidence_strength < 0.5,
-        reason="High confidence signal contradicts weak evidence strength",
-        state=state,
-    )
-
-    # GATE: If violations exist, return ignore verdict immediately
+    # GATE: If violations exist — flag uncertainty, do not downgrade when knowledge_gap (Scout)
     if state.contract_violation:
-        violation_items = [f"• {v}" for v in state.violations]
-        # Ensure at least 2 action items
+        violations_list = state.violations if state.violations is not None else []
+        violation_items = [f"• {v}" for v in violations_list if v]
         if len(violation_items) < 2:
             violation_items.append("• Re-evaluate when evidence is clearer")
-        
+        violation_items = violation_items[:4]
+
+        # When model and evidence disagree but market suggests established tech → watchlist not ignore
+        if state.knowledge_gap:
+            state.verdict = VerdictOutput(
+                verdict="watchlist",
+                reasoning="Contract violations detected (model certainty vs thin evidence). Market signal suggests established tech; classify as knowledge gap, not weak tech. Re-evaluate with fresher evidence.",
+                action_items=violation_items,
+                timeline="re-evaluate in 3 months",
+                confidence="low",
+            )
+            return state
         state.verdict = VerdictOutput(
             verdict="ignore",
-            reasoning="Contract violations detected during evaluation",
+            reasoning="Contract violations detected during evaluation. The analysis contains contradictions that prevent a reliable recommendation.",
             action_items=violation_items,
             timeline="wait 6+ months",
+            confidence="low",
+        )
+        return state
+
+    # DECISION TRAJECTORY RESOLVER: Check if we should upgrade "explore" → "pursue"
+    # This happens BEFORE LLM call to prevent decision inertia
+    memory_context_obj = None
+    if state.memory_context and MEMORY_AVAILABLE:
+        try:
+            memory_context_obj = MemoryContext(**state.memory_context)
+        except Exception:
+            memory_context_obj = MemoryContext()
+    
+    forced_verdict = resolve_decision_trajectory(state, memory_context_obj)
+    
+    if forced_verdict == "pursue":
+        # Force pursue verdict with trajectory-aware reasoning
+        state.verdict = VerdictOutput(
+            verdict="pursue",
+            reasoning=f"Previous exploration of similar topics combined with current market signal ({market}) and feasibility ({state.reality_check.feasibility}) indicates this is worth pursuing now. Conditions have strengthened since initial exploration.",
+            action_items=[
+                "Begin hands-on implementation or deeper learning",
+                "Allocate dedicated time for skill development",
+                "Build a practical project to validate understanding",
+            ],
+            timeline="now",
             confidence="high",
         )
         return state
 
+    # Prepare parser early so format_instructions can be embedded when
+    # formatting the base prompt for enhancement (avoids KeyError).
+    parser = JsonOutputParser(pydantic_object=VerdictOutput)
+
     # Enhance prompt with memory context if available
     if state.memory_hints and state.memory_hints != "No relevant memories found.":
-        # Create enhanced prompt
+        # Create enhanced prompt (include format_instructions when formatting)
+        # Escape format_instructions before formatting the base prompt
+        fi = parser.get_format_instructions().replace("{", "{{").replace("}", "}}")
+
         enhanced_prompt = enhance_verdict_prompt(
             base_prompt=BASE_VERDICT_PROMPT.format_messages(
-                signal=state.signal.model_dump(),
-                reality_check=state.reality_check.model_dump(),
+                status=state.signal.status if state.signal else "insufficient_signal",
+                feasibility=state.reality_check.feasibility if state.reality_check else "low",
+                market_signal=state.reality_check.market_signal if state.reality_check else "weak",
+                hype_score=state.reality_check.hype_score if state.reality_check else 0,
+                memory_context=state.memory_hints or "No relevant memories found.",
+                format_instructions=fi,
             )[0].content,
             memory_context=MemoryContext(**state.memory_context)
             if state.memory_context
@@ -680,21 +907,53 @@ def verdict_node(state: AxiomState) -> AxiomState:
         VERDICT_PROMPT_WITH_MEMORY = BASE_VERDICT_PROMPT
 
     # Create normal verdict with memory-enhanced prompt
-    parser = JsonOutputParser(pydantic_object=VerdictOutput)
     chain = VERDICT_PROMPT_WITH_MEMORY | llm | parser
 
-    result = chain.invoke(
-        {
-            "signal": state.signal.model_dump(),
-            "reality_check": state.reality_check.model_dump(),
-            "format_instructions": parser.get_format_instructions(),
+    # FIXED: Add comprehensive error handling for LLM invocation
+    try:
+        result = chain.invoke(
+            {
+                "status": state.signal.status if state.signal else "insufficient_signal",
+                "feasibility": state.reality_check.feasibility if state.reality_check else "low",
+                "market_signal": state.reality_check.market_signal if state.reality_check else "weak",
+                "hype_score": state.reality_check.hype_score if state.reality_check else 0,
+                "format_instructions": parser.get_format_instructions().replace("{", "{{").replace("}", "}}"),
+                "memory_context": state.memory_hints or "No relevant memories found.",
+            }
+        )
+    except Exception as e:
+        print(f"⚠️  Error in verdict LLM invocation: {e}")
+        import traceback
+        traceback.print_exc()
+        # FIXED: Provide safe fallback result on error
+        result = {
+            "verdict": "ignore",
+            "reasoning": f"Error during verdict analysis: {str(e)[:200]}",
+            "action_items": [
+                "Re-evaluate when system is available",
+                "Check system logs for details"
+            ],
+            "timeline": "wait 6+ months",
+            "confidence": "low",
         }
-    )
+    
+    # Validate and fix result to ensure action_items meets schema requirements
+    result = validate_and_fix_verdict_result(result, result.get("verdict"))
+
+    # Step 3: Confidence dampening — penalize model certainty when evidence is thin
+    if evidence_strength < 0.5 and result.get("confidence") == "high":
+        result["confidence"] = "medium"
+        if "reasoning" in result:
+            result["reasoning"] += " [Confidence dampened: thin evidence does not support high confidence]"
+    if state.signal and state.signal.status == "insufficient_signal":
+        result["confidence"] = "low"
+        if "reasoning" in result:
+            result["reasoning"] += " [Confidence set to low due to insufficient signal]"
 
     state.verdict = VerdictOutput(**result)
 
     # Memory calibration: Adjust confidence if memory shows contradictory patterns
-    if state.verdict.confidence == "high" and state.memory_relevance_score > 0.7:
+    if state.verdict and state.verdict.confidence == "high" and state.memory_relevance_score and state.memory_relevance_score > 0.7:
         # Check for contradiction patterns in memory
         if state.memory_hints and "contradict" in state.memory_hints.lower():
             state.verdict.confidence = "medium"
@@ -703,15 +962,23 @@ def verdict_node(state: AxiomState) -> AxiomState:
             )
 
     # Calculate evidence-verdict alignment
-    state.evidence_verdict_alignment = calculate_alignment(
-        state.verdict.confidence, evidence_strength
-    )
+    # FIXED: Add null safety check
+    if state.verdict:
+        state.evidence_verdict_alignment = calculate_alignment(
+            state.verdict.confidence, evidence_strength
+        )
+    else:
+        state.evidence_verdict_alignment = 0.0
 
     # Calculate overall chain coherence (include memory relevance)
-    if state.memory_relevance_score:
+    # FIXED: Handle None values gracefully with proper fallbacks
+    signal_alignment = state.signal_evidence_alignment if state.signal_evidence_alignment is not None else 0.5
+    verdict_alignment = state.evidence_verdict_alignment if state.evidence_verdict_alignment is not None else 0.5
+    
+    if state.memory_relevance_score and state.memory_relevance_score > 0:
         coherence_components = [
-            state.signal_evidence_alignment or 0.5,
-            state.evidence_verdict_alignment or 0.5,
+            signal_alignment,
+            verdict_alignment,
             state.memory_relevance_score,
         ]
         state.chain_coherence_score = round(
@@ -719,7 +986,7 @@ def verdict_node(state: AxiomState) -> AxiomState:
         )
     else:
         state.chain_coherence_score = round(
-            (state.signal_evidence_alignment + state.evidence_verdict_alignment) / 2.0,
+            (signal_alignment + verdict_alignment) / 2.0,
             3,
         )
 
@@ -761,31 +1028,35 @@ def memory_store_node(state: AxiomState) -> AxiomState:
             print(f"⚠️  Error storing memories: {e}")
 
     # Calculate final chain coherence if not already calculated
+    # FIXED: Comprehensive null safety and fallback handling
     if state.chain_coherence_score is None:
-        evidence_strength = evidence_strength_from_market(
-            state.reality_check.market_signal if state.reality_check else "weak",
-            state.reality_check.hype_score if state.reality_check else 0,
-        )
+        # Safe extraction with defaults
+        market_signal = "weak"
+        hype_score = 0
+        if state.reality_check:
+            market_signal = state.reality_check.market_signal or "weak"
+            try:
+                hype_score = int(state.reality_check.hype_score) if state.reality_check.hype_score is not None else 0
+            except (ValueError, TypeError):
+                hype_score = 0
+        
+        evidence_strength = evidence_strength_from_market(market_signal, hype_score)
 
-        signal_alignment = (
-            calculate_alignment(
-                state.signal.confidence_level or "low", evidence_strength
-            )
-            if state.signal
-            else 0.5
-        )
+        # Calculate signal alignment with null safety
+        signal_confidence = "low"
+        if state.signal and state.signal.confidence_level:
+            signal_confidence = state.signal.confidence_level
+        signal_alignment = calculate_alignment(signal_confidence, evidence_strength)
 
-        verdict_alignment = (
-            calculate_alignment(
-                state.verdict.confidence if state.verdict else "medium",
-                evidence_strength,
-            )
-            if state.verdict
-            else 0.5
-        )
+        # Calculate verdict alignment with null safety
+        verdict_confidence = "medium"
+        if state.verdict and state.verdict.confidence:
+            verdict_confidence = state.verdict.confidence
+        verdict_alignment = calculate_alignment(verdict_confidence, evidence_strength)
 
+        # FIXED: Prevent division by zero (shouldn't happen, but defensive)
         state.chain_coherence_score = round(
-            (signal_alignment + verdict_alignment) / 2, 3
+            (signal_alignment + verdict_alignment) / 2.0, 3
         )
 
     return state
@@ -796,11 +1067,80 @@ def memory_store_node(state: AxiomState) -> AxiomState:
 # ============================================================================
 
 
-def check_contract(condition, reason, state):
-    """Check for contract violations"""
+def validate_and_fix_verdict_result(result: Dict[str, Any], verdict_type: str = None) -> Dict[str, Any]:
+    """
+    Validate and fix verdict result to ensure it meets schema requirements.
+    Specifically handles action_items validation (must be 2-4 items).
+    
+    This prevents validation errors when LLM returns malformed data.
+    """
+    # Ensure action_items is a list
+    if "action_items" not in result or not isinstance(result["action_items"], list):
+        result["action_items"] = []
+    
+    action_items = result["action_items"]
+    
+    # Remove empty strings and ensure all items are strings
+    action_items = [str(item).strip() for item in action_items if str(item).strip()]
+    
+    # Default action items based on verdict type if we don't have enough
+    if len(action_items) < 2:
+        verdict = result.get("verdict", verdict_type or "explore")
+        
+        defaults = {
+            "pursue": [
+                "Begin hands-on implementation or deeper learning",
+                "Allocate dedicated time for skill development",
+            ],
+            "explore": [
+                "Research the current state of this technology",
+                "Evaluate its potential applications and use cases",
+            ],
+            "watchlist": [
+                "Re-evaluate in 3 months with fresher evidence",
+                "Do not decay or upgrade until more signal",
+            ],
+            "ignore": [
+                "Focus on established technologies with proven value",
+                "Re-evaluate when clearer signal emerges",
+            ],
+        }
+        
+        needed = 2 - len(action_items)
+        defaults_to_add = defaults.get(verdict, defaults["explore"])[:needed]
+        action_items.extend(defaults_to_add)
+    
+    # Truncate to maximum of 4 items
+    if len(action_items) > 4:
+        action_items = action_items[:4]
+    
+    result["action_items"] = action_items
+    
+    # Ensure other required fields have defaults
+    result.setdefault("verdict", "explore")
+    result.setdefault("reasoning", "Analysis completed with available information.")
+    verdict = result.get("verdict", "explore")
+    result.setdefault("timeline", "re-evaluate in 3 months" if verdict == "watchlist" else "in 3 months")
+    result.setdefault("confidence", "medium")
+    return result
+
+
+def check_contract(condition: bool, reason: str, state: AxiomState) -> None:
+    """
+    Check for contract violations and record them.
+    
+    Edge cases handled:
+    - None violations list → initialize it
+    - Duplicate violations → allowed (may indicate multiple issues)
+    - Empty reason → skip (invalid input)
+    """
     if condition:
         state.contract_violation = True
-        state.violations.append(reason)
+        # FIXED: Ensure violations list exists and reason is valid
+        if state.violations is None:
+            state.violations = []
+        if reason and reason.strip():  # Only add non-empty reasons
+            state.violations.append(reason.strip())
 
 
 def calculate_alignment(claimed_confidence: str, evidence_strength: float) -> float:
@@ -819,6 +1159,83 @@ def evidence_strength_from_market(market_signal, hype_score):
     base = {"weak": 0.2, "mixed": 0.6, "strong": 0.9}.get(market_signal, 0.3)
     penalty = max(0.0, (hype_score - 6) / 10)
     return max(0.0, base * (1 - penalty))
+
+
+def resolve_decision_trajectory(
+    state: AxiomState,
+    memory_context: Optional[MemoryContext] = None,
+) -> Optional[Literal["pursue", "explore", "watchlist", "ignore"]]:
+    """
+    Decision Trajectory Resolver: Upgrades "explore" to "pursue" ONLY with proof of grounded value.
+    
+    NEGATIVE GATE: Blocks upgrades unless:
+    - market_signal == "strong" OR feasibility == "high"
+    
+    This prevents:
+    - Hype bubbles (hype alone is never enough)
+    - Academic-only topics from being promoted
+    - Mixed + medium from automatically upgrading
+    
+    Examples:
+    - Quantum ML: market="mixed", feasibility="medium" → BLOCKED (stays explore)
+    - TypeScript: market="strong", feasibility="high" → ALLOWED (upgrades to pursue)
+    - FastAPI: market="strong", feasibility="medium" → ALLOWED (upgrades to pursue)
+    
+    Returns:
+        Forced verdict override OR None (let LLM decide)
+    """
+    if not memory_context or not memory_context.similar_decisions:
+        return None
+    
+    # Find most recent "explore" decision for this topic (normalized)
+    topic_normalized = state.topic.lower().strip()
+    recent_explore = None
+    
+    for decision in memory_context.similar_decisions:
+        decision_topic = decision.get("topic", "").lower().strip()
+        decision_verdict = decision.get("verdict", "").lower()
+        
+        # Check if this is a similar topic with "explore" verdict
+        if decision_verdict == "explore":
+            # Simple similarity check (can be enhanced with embeddings)
+            topic_words = set(topic_normalized.split())
+            decision_words = set(decision_topic.split())
+            
+            # If topics share significant words, consider them similar
+            if len(topic_words & decision_words) >= 1 or topic_normalized in decision_topic or decision_topic in topic_normalized:
+                if recent_explore is None or decision.get("days_ago", 999) < recent_explore.get("days_ago", 999):
+                    recent_explore = decision
+    
+    # If we found a previous "explore" decision, check upgrade conditions
+    if recent_explore:
+        market = state.reality_check.market_signal
+        feasibility = state.reality_check.feasibility
+        hype = state.reality_check.hype_score
+        
+        # NEGATIVE GATE: Require proof of grounded value
+        # Block upgrade unless market is strong OR feasibility is high
+        # This prevents hype bubbles and academic-only topics
+        upgrade_allowed = (
+            market == "strong" or feasibility == "high"
+        )
+        
+        # Additional safety: hype alone is never enough
+        if upgrade_allowed and hype <= 6:
+            print(f"🚀 DECISION TRAJECTORY: Upgrading 'explore' → 'pursue'")
+            print(f"   Previous: {recent_explore.get('topic', 'N/A')} → explore ({recent_explore.get('days_ago', 'N/A')} days ago)")
+            print(f"   Conditions: market={market}, feasibility={feasibility}, hype={hype}")
+            print(f"   ✅ Upgrade allowed: market='strong' OR feasibility='high'")
+            return "pursue"
+        else:
+            print(f"🚫 DECISION TRAJECTORY: Upgrade BLOCKED")
+            print(f"   Previous: {recent_explore.get('topic', 'N/A')} → explore ({recent_explore.get('days_ago', 'N/A')} days ago)")
+            print(f"   Conditions: market={market}, feasibility={feasibility}, hype={hype}")
+            if not upgrade_allowed:
+                print(f"   ❌ Blocked: Need market='strong' OR feasibility='high' (got market='{market}', feasibility='{feasibility}')")
+            if hype > 6:
+                print(f"   ❌ Blocked: Hype score too high ({hype} > 6)")
+    
+    return None
 
 
 # ============================================================================

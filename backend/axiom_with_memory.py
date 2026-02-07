@@ -117,6 +117,8 @@ class AxiomWithMemory:
             OpikTracer,
             signal_framing_node,
             reality_check_node,
+            resolve_decision_trajectory,
+            validate_and_fix_verdict_result,
         )
         from langgraph.graph import StateGraph, END
 
@@ -136,10 +138,31 @@ class AxiomWithMemory:
 
         # Create memory-enhanced verdict function
         def verdict_node_with_memory(state: AxiomState) -> AxiomState:
-            """Enhanced verdict node with memory hints"""
+            """Enhanced verdict node with memory hints (Scout: knowledge_gap → watchlist)."""
 
-            # Short-circuit if signal is insufficient
+            hype = state.reality_check.hype_score
+            market = state.reality_check.market_signal
+            evidence_strength = evidence_strength_from_market(market, hype)
+
+            # Knowledge gap: model prior weak but market strong/mixed → do not downgrade to ignore
+            state.knowledge_gap = (
+                state.signal.status == "insufficient_signal"
+                and state.reality_check.market_signal in ("strong", "mixed")
+            )
+
             if state.signal.status == "insufficient_signal":
+                if state.knowledge_gap:
+                    state.verdict = VerdictOutput(
+                        verdict="watchlist",
+                        reasoning="Model knowledge is lagging but market evidence suggests established or emerging. Re-evaluate with fresher sources.",
+                        action_items=[
+                            "Re-evaluate when external evidence is available",
+                            "Do not ignore based on model prior alone",
+                        ],
+                        timeline="re-evaluate in 3 months",
+                        confidence="low",
+                    )
+                    return state
                 state.verdict = VerdictOutput(
                     verdict="ignore",
                     reasoning="The topic lacks sufficient public clarity or substance to justify investment of time.",
@@ -148,16 +171,10 @@ class AxiomWithMemory:
                         "Focus on established technologies with proven value",
                     ],
                     timeline="wait 6+ months",
-                    confidence="high",
+                    confidence="low",
                 )
                 return state
 
-            # PRE-VERDICT CONTRACT CHECKS (your existing logic)
-            hype = state.reality_check.hype_score
-            market = state.reality_check.market_signal
-            evidence_strength = evidence_strength_from_market(market, hype)
-
-            # Check confidence alignment violation early
             check_contract(
                 condition=state.signal.confidence_level == "high"
                 and evidence_strength < 0.5,
@@ -165,18 +182,50 @@ class AxiomWithMemory:
                 state=state,
             )
 
-            # GATE: If violations exist, return ignore verdict immediately
             if state.contract_violation:
                 violation_items = [f"• {v}" for v in state.violations]
-                # Ensure at least 2 action items
                 if len(violation_items) < 2:
                     violation_items.append("• Re-evaluate when evidence is clearer")
-                
+                if state.knowledge_gap:
+                    state.verdict = VerdictOutput(
+                        verdict="watchlist",
+                        reasoning="Contract violations (model vs evidence). Market suggests established tech; treat as knowledge gap.",
+                        action_items=violation_items,
+                        timeline="re-evaluate in 3 months",
+                        confidence="low",
+                    )
+                    return state
                 state.verdict = VerdictOutput(
                     verdict="ignore",
                     reasoning="Contract violations detected during evaluation",
                     action_items=violation_items,
                     timeline="wait 6+ months",
+                    confidence="low",
+                )
+                return state
+
+            # DECISION TRAJECTORY RESOLVER: Check if we should upgrade "explore" → "pursue"
+            # This happens BEFORE LLM call to prevent decision inertia
+            memory_context_obj = None
+            if state.memory_context:
+                try:
+                    memory_context_obj = MemoryContext(**state.memory_context)
+                except Exception:
+                    memory_context_obj = MemoryContext()
+            
+            forced_verdict = resolve_decision_trajectory(state, memory_context_obj)
+            
+            if forced_verdict == "pursue":
+                # Force pursue verdict with trajectory-aware reasoning
+                state.verdict = VerdictOutput(
+                    verdict="pursue",
+                    reasoning=f"Previous exploration of similar topics combined with current market signal ({market}) and feasibility ({state.reality_check.feasibility}) indicates this is worth pursuing now. Conditions have strengthened since initial exploration.",
+                    action_items=[
+                        "Begin hands-on implementation or deeper learning",
+                        "Allocate dedicated time for skill development",
+                        "Build a practical project to validate understanding",
+                    ],
+                    timeline="now",
                     confidence="high",
                 )
                 return state
@@ -192,6 +241,9 @@ class AxiomWithMemory:
                     "format_instructions": parser.get_format_instructions(),
                 }
             )
+            
+            # Validate and fix result to ensure action_items meets schema requirements
+            result = validate_and_fix_verdict_result(result, result.get("verdict"))
 
             state.verdict = VerdictOutput(**result)
 

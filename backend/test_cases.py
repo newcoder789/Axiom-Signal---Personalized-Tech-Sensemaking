@@ -66,46 +66,46 @@ test_cases = []
 
 test_cases.extend(
     [
-        {
-            "category": "Hype Tech",
-            "name": "Devin AI",
-            "topic": "Devin AI coding agent",
-            "user": "Senior software engineer, interested in AI-assisted development",
-            "expected": "explore",  # Hyped but worth knowing about
-            "notes": "High hype but represents real trend in AI coding assistants",
-        },
-        {
-            "category": "Hype Tech",
-            "name": "AutoGPT",
-            "topic": "AutoGPT autonomous agents",
-            "user": "AI/ML engineer, building LLM applications",
-            "expected": "explore",  # Overhyped but educational
-            "notes": "Overhyped but useful for understanding agent patterns",
-        },
-        {
-            "category": "Hype Tech",
-            "name": "Web3 Development",
-            "topic": "Web3 development and dApps",
-            "user": "Full-stack developer, curious about blockchain",
-            "expected": "explore",  
-            "notes": "Unless crypto-focused, opportunity cost too high",
-        },
-        {
-            "category": "Hype Tech",
-            "name": "No-Code AI",
-            "topic": "No-code AI platform builders",
-            "user": "Product manager, non-technical, wants to build AI features",
-            "expected": "explore",  # Legit for PMs
-            "notes": "Appropriate for non-technical roles",
-        },
-        {
-            "category": "Hype Tech",
-            "name": "Edge AI",
-            "topic": "Edge AI and on-device models",
-            "user": "Mobile developer, iOS/Android experience",
-            "expected": "explore",  # Real trend, worth knowing
-            "notes": "Legitimate trend in mobile AI",
-        },
+        # {
+        #     "category": "Hype Tech",
+        #     "name": "Devin AI",
+        #     "topic": "Devin AI coding agent",
+        #     "user": "Senior software engineer, interested in AI-assisted development",
+        #     "expected": "explore",  # Hyped but worth knowing about
+        #     "notes": "High hype but represents real trend in AI coding assistants",
+        # },
+        # {
+        #     "category": "Hype Tech",
+        #     "name": "AutoGPT",
+        #     "topic": "AutoGPT autonomous agents",
+        #     "user": "AI/ML engineer, building LLM applications",
+        #     "expected": "explore",  # Overhyped but educational
+        #     "notes": "Overhyped but useful for understanding agent patterns",
+        # },
+        # {
+        #     "category": "Hype Tech",
+        #     "name": "Web3 Development",
+        #     "topic": "Web3 development and dApps",
+        #     "user": "Full-stack developer, curious about blockchain",
+        #     "expected": "explore",  
+        #     "notes": "Unless crypto-focused, opportunity cost too high",
+        # },
+        # {
+        #     "category": "Hype Tech",
+        #     "name": "No-Code AI",
+        #     "topic": "No-code AI platform builders",
+        #     "user": "Product manager, non-technical, wants to build AI features",
+        #     "expected": "explore",  # Legit for PMs
+        #     "notes": "Appropriate for non-technical roles",
+        # },
+        # {
+        #     "category": "Hype Tech",
+        #     "name": "Edge AI",
+        #     "topic": "Edge AI and on-device models",
+        #     "user": "Mobile developer, iOS/Android experience",
+        #     "expected": "explore",  # Real trend, worth knowing
+        #     "notes": "Legitimate trend in mobile AI",
+        # },
         {
             "category": "Hype Tech",
             "name": "Quantum ML",

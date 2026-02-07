@@ -3,7 +3,7 @@ import json
 
 print('=== Python redis-py diagnostics connecting to redis://localhost:6379 ===')
 try:
-    c = redis.Redis.from_url('redis://localhost:6379', decode_responses=True)
+    c = redis.Redis(host="127.0.0.1", port=6379, decode_responses=True)
     info = c.info()
     print('INFO server:', info.get('redis_version', 'unknown'))
     print('INFO role:', info.get('role', 'unknown'))

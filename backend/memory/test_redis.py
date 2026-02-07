@@ -1,7 +1,7 @@
 import redis
 
 # Test connection
-r = redis.Redis(host="localhost", port=6379, decode_responses=True)
+r = redis.Redis(host="127.0.0.1", port=6379, decode_responses=True)
 
 try:
     response = r.ping()

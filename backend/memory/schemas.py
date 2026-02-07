@@ -214,7 +214,7 @@ class DecisionMemory(BaseMemory):
 
     user_id: str
     topic: str
-    verdict: Literal["pursue", "explore", "ignore"]
+    verdict: Literal["pursue", "explore", "watchlist", "ignore"]
     reasoning: str
     ttl_days: int = Field(7, description="Days until this memory expires")
 
@@ -290,7 +290,7 @@ class MemoryContext(BaseModel):
                 verdict = decision.get("verdict", "").upper()
                 topic = decision.get("topic", "")
 
-                verdict_emoji = {"PURSUE": "✅", "EXPLORE": "🔍", "IGNORE": "❌"}.get(
+                verdict_emoji = {"PURSUE": "✅", "EXPLORE": "🔍", "WATCHLIST": "📌", "IGNORE": "❌"}.get(
                     verdict, "•"
                 )
 

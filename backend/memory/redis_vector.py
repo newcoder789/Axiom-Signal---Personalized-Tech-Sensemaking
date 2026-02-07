@@ -61,9 +61,10 @@ class RedisVectorMemory:
     """
 
     def __init__(self, redis_url: str = "redis://localhost:6379", index_algorithm: str = "FLAT", memory_threshold_mb: int = 512):
-        # Connect to Redis Stack
-        self.redis = redis.Redis.from_url(
-            redis_url,
+        # Connect to Redis Stack - force host and port
+        self.redis = redis.Redis(
+            host="127.0.0.1",
+            port=6379,
             decode_responses=False,  # Keep bytes for embeddings
             socket_connect_timeout=5,
             socket_keepalive=True,
@@ -186,20 +187,61 @@ class RedisVectorMemory:
         """
         Detect contradictions between signal/reality/verdict.
         Returns True if violation detected.
+        
+        Edge cases handled:
+        - None/empty inputs → gracefully handled with defaults
+        - Case-insensitive string matching
+        - Multiple violation patterns checked comprehensively
         """
+        # FIXED: Add input validation and null safety
+        if not signal_status or not confidence:
+            return False  # Cannot check without required fields
+        
+        signal_status = signal_status.lower().strip()
+        confidence = confidence.lower().strip()
+        verdict = (verdict or "").lower().strip()
+        market_signal = (market_signal or "").lower().strip()
+        reasoning = (reasoning or "").lower()
+        
+        # Ensure hype_score is valid integer
+        try:
+            hype_score = int(hype_score) if hype_score is not None else 0
+        except (ValueError, TypeError):
+            hype_score = 0
+        
         # 1. Insufficient signal → should not be high confidence
         if signal_status == "insufficient_signal" and confidence == "high":
-            print("   ⚠️  CONTRACT VIOLATION: insuicient signal but high confidence")
+            print("   ⚠️  CONTRACT VIOLATION: insufficient signal but high confidence")
             return True
         
-        # 2. Weak market + strong hype → contradictory signals
+        # 2. Weak market + strong hype → contradictory signals (only if pursuing)
         if market_signal == "weak" and hype_score >= 9 and verdict == "pursue":
             print("   ⚠️  CONTRACT VIOLATION: weak market but high hype, yet pursuing")
             return True
         
-        # 3. No evidence in reasoning → high confidence mismatch
-        if "no direct evidence" in reasoning.lower() and "no evidence" in reasoning.lower() and confidence == "high":
+        # 3. FIXED: No evidence in reasoning → high confidence mismatch (removed redundant check)
+        # Check for multiple patterns indicating lack of evidence
+        no_evidence_patterns = [
+            "no direct evidence",
+            "no evidence",
+            "insufficient evidence",
+            "lack of evidence",
+            "no clear evidence",
+            "evidence is lacking"
+        ]
+        has_no_evidence = any(pattern in reasoning for pattern in no_evidence_patterns)
+        if has_no_evidence and confidence == "high":
             print("   ⚠️  CONTRACT VIOLATION: no evidence but high confidence")
+            return True
+        
+        # 4. NEW: Weak market + high confidence → contradiction
+        if market_signal == "weak" and confidence == "high" and verdict == "pursue":
+            print("   ⚠️  CONTRACT VIOLATION: weak market signal but high confidence in pursuing")
+            return True
+        
+        # 5. NEW: High hype (10) + weak market → always violation
+        if hype_score == 10 and market_signal == "weak":
+            print("   ⚠️  CONTRACT VIOLATION: maximum hype (10) contradicts weak market signal")
             return True
         
         return False
