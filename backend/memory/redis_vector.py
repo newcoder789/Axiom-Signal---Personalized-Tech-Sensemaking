@@ -74,9 +74,9 @@ class RedisVectorMemory:
         # Test connection
         try:
             self.redis.ping()
-            print("✅ Connected to Redis Stack")
+            print("[OK] Connected to Redis Stack")
         except Exception as e:
-            print(f"❌ Redis Stack connection failed: {e}")
+            print(f"[X] Redis Stack connection failed: {e}")
             print(
                 "   Make sure Redis Stack is running: docker run -p 6379:6379 redis/redis-stack:latest"
             )
@@ -88,7 +88,7 @@ class RedisVectorMemory:
         # Initialize Redis Search indexes
         self.index_algorithm = index_algorithm.upper()  # "FLAT" or "HNSW"
         if self.index_algorithm not in ("FLAT", "HNSW"):
-            print(f"⚠️  Unknown index algorithm '{self.index_algorithm}', using FLAT")
+            print(f"[WARN]  Unknown index algorithm '{self.index_algorithm}', using FLAT")
             self.index_algorithm = "FLAT"
         self._init_indexes()
 
@@ -108,7 +108,7 @@ class RedisVectorMemory:
         self.TOPIC_PATTERN_TTL = 180 * 86400  # 180 days
         self.DECISION_TTL = 7 * 86400  # 7 days
 
-        print(f"🧠 Redis Vector Memory initialized (algorithm: {self.index_algorithm}, memory limit: {memory_threshold_mb}MB)")
+        print(f"[BRAIN] Redis Vector Memory initialized (algorithm: {self.index_algorithm}, memory limit: {memory_threshold_mb}MB)")
 
     def _init_embeddings(self):
         """Initialize sentence transformer for embeddings"""
@@ -124,15 +124,15 @@ class RedisVectorMemory:
                 except Exception:
                     self.VECTOR_DIM = 384
 
-                print(f"   ✅ Embedding model loaded (dim: {self.VECTOR_DIM})")
+                print(f"   [OK] Embedding model loaded (dim: {self.VECTOR_DIM})")
             except Exception as e:
                 # Network or HF errors can occur while downloading model files
-                print(f"   ⚠️  Could not load embedding model '{model_name}': {e}")
+                print(f"   [WARN]  Could not load embedding model '{model_name}': {e}")
                 print("   Tip: set HF_TOKEN environment variable or ensure network access, or set SENTENCE_TRANSFORMER_MODEL to a local model path")
                 self.embedder = None
                 self.VECTOR_DIM = 384
         except ImportError as e:
-            print(f"   ⚠️  sentence-transformers not installed: {e}")
+            print(f"   [WARN]  sentence-transformers not installed: {e}")
             print("   Install: pip install sentence-transformers")
             self.embedder = None
             self.VECTOR_DIM = 384
@@ -169,7 +169,7 @@ class RedisVectorMemory:
         
         except Exception as e:
             self.metrics.increment_encoding_error()
-            print(f"❌ Encoding error for text: {text[:50]}... - {e}")
+            print(f"[X] Encoding error for text: {text[:50]}... - {e}")
             raise
 
     def decision_sig(self, topic: str, reasoning: str) -> str:
@@ -211,12 +211,12 @@ class RedisVectorMemory:
         
         # 1. Insufficient signal → should not be high confidence
         if signal_status == "insufficient_signal" and confidence == "high":
-            print("   ⚠️  CONTRACT VIOLATION: insufficient signal but high confidence")
+            print("   [WARN]  CONTRACT VIOLATION: insufficient signal but high confidence")
             return True
         
         # 2. Weak market + strong hype → contradictory signals (only if pursuing)
         if market_signal == "weak" and hype_score >= 9 and verdict == "pursue":
-            print("   ⚠️  CONTRACT VIOLATION: weak market but high hype, yet pursuing")
+            print("   [WARN]  CONTRACT VIOLATION: weak market but high hype, yet pursuing")
             return True
         
         # 3. FIXED: No evidence in reasoning → high confidence mismatch (removed redundant check)
@@ -231,17 +231,17 @@ class RedisVectorMemory:
         ]
         has_no_evidence = any(pattern in reasoning for pattern in no_evidence_patterns)
         if has_no_evidence and confidence == "high":
-            print("   ⚠️  CONTRACT VIOLATION: no evidence but high confidence")
+            print("   [WARN]  CONTRACT VIOLATION: no evidence but high confidence")
             return True
         
         # 4. NEW: Weak market + high confidence → contradiction
         if market_signal == "weak" and confidence == "high" and verdict == "pursue":
-            print("   ⚠️  CONTRACT VIOLATION: weak market signal but high confidence in pursuing")
+            print("   [WARN]  CONTRACT VIOLATION: weak market signal but high confidence in pursuing")
             return True
         
         # 5. NEW: High hype (10) + weak market → always violation
         if hype_score == 10 and market_signal == "weak":
-            print("   ⚠️  CONTRACT VIOLATION: maximum hype (10) contradicts weak market signal")
+            print("   [WARN]  CONTRACT VIOLATION: maximum hype (10) contradicts weak market signal")
             return True
         
         return False
@@ -256,13 +256,13 @@ class RedisVectorMemory:
             used_mb = info.get("used_memory", 0) / (1024 * 1024)
             
             if used_mb > self.memory_threshold_mb:
-                print(f"   🚨 MEMORY ALERT: {used_mb:.1f}MB / {self.memory_threshold_mb}MB threshold")
+                print(f"   [ALERT] MEMORY ALERT: {used_mb:.1f}MB / {self.memory_threshold_mb}MB threshold")
                 self.metrics.increment_encoding_error()  # Track as error
                 return False
             
             return True
         except Exception as e:
-            print(f"   ⚠️  Memory check failed: {e}")
+            print(f"   [WARN]  Memory check failed: {e}")
             return True  # Allow write if check fails
 
     def _init_indexes(self):
@@ -274,7 +274,7 @@ class RedisVectorMemory:
         # 1. User Traits Index
         try:
             self.redis.ft("idx:axiom:user_traits").info()
-            print(f"   ✅ User traits index exists ({self.index_algorithm})")
+            print(f"   [OK] User traits index exists ({self.index_algorithm})")
         except Exception:
             schema = (
                 TextField("user_id"),
@@ -299,16 +299,16 @@ class RedisVectorMemory:
                         prefix=["axiom:user_trait:"], index_type=IndexType.HASH
                     ),
                 )
-                print(f"   ✅ Created user traits index ({self.index_algorithm})")
+                print(f"   [OK] Created user traits index ({self.index_algorithm})")
             except Exception as e:
-                print(f"   ⚠️  Could not create user_traits index: {e}")
+                print(f"   [WARN]  Could not create user_traits index: {e}")
                 print("   Make sure you're connected to Redis Stack with RediSearch (redis/redis-stack)")
                 self.search_available = False
 
         # 2. Topic Patterns Index
         try:
             self.redis.ft("idx:axiom:topic_patterns").info()
-            print(f"   ✅ Topic patterns index exists ({self.index_algorithm})")
+            print(f"   [OK] Topic patterns index exists ({self.index_algorithm})")
         except Exception:
             schema = (
                 TextField("topic"),
@@ -334,16 +334,16 @@ class RedisVectorMemory:
                         prefix=["axiom:topic_pattern:"], index_type=IndexType.HASH
                     ),
                 )
-                print(f"   ✅ Created topic patterns index ({self.index_algorithm})")
+                print(f"   [OK] Created topic patterns index ({self.index_algorithm})")
             except Exception as e:
-                print(f"   ⚠️  Could not create topic_patterns index: {e}")
+                print(f"   [WARN]  Could not create topic_patterns index: {e}")
                 print("   Make sure you're connected to Redis Stack with RediSearch (redis/redis-stack)")
                 self.search_available = False
 
         # 3. Decisions Index
         try:
             self.redis.ft("idx:axiom:decisions").info()
-            print(f"   ✅ Decisions index exists ({self.index_algorithm})")
+            print(f"   [OK] Decisions index exists ({self.index_algorithm})")
         except Exception:
             schema = (
                 TextField("user_id"),
@@ -370,9 +370,9 @@ class RedisVectorMemory:
                         prefix=["axiom:decision:"], index_type=IndexType.HASH
                     ),
                 )
-                print(f"   ✅ Created decisions index ({self.index_algorithm})")
+                print(f"   [OK] Created decisions index ({self.index_algorithm})")
             except Exception as e:
-                print(f"   ⚠️  Could not create decisions index: {e}")
+                print(f"   [WARN]  Could not create decisions index: {e}")
                 print("   Make sure you're connected to Redis Stack with RediSearch (redis/redis-stack)")
                 self.search_available = False
 
@@ -427,7 +427,7 @@ class RedisVectorMemory:
             confidence=ctx.confidence
         ):
             results["reasons"]["violation"] = "contract_violation_detected"
-            print("   🛑 Memory write blocked by contract violation")
+            print("   [STOP] Memory write blocked by contract violation")
             return results
 
         # 1. Process user traits
@@ -492,7 +492,7 @@ class RedisVectorMemory:
             # NORMALIZE TOPIC CONSISTENTLY
             normalized_topic = self._normalize_topic(topic)
             print(
-                f"🔍 Searching for normalized topic: '{normalized_topic}' (original: '{topic}')"
+                f"[SEARCH] Searching for normalized topic: '{normalized_topic}' (original: '{topic}')"
             )
 
             # Get user traits
@@ -529,13 +529,13 @@ class RedisVectorMemory:
             context.similar_decisions = self._get_recent_decisions(user_id, limit=5)
 
             print(
-                f"✅ Found {len(context.user_traits)} traits, "
+                f"[OK] Found {len(context.user_traits)} traits, "
                 f"{len(context.topic_patterns)} patterns, "
                 f"{len(context.similar_decisions)} decisions"
             )
 
         except Exception as e:
-            print(f"⚠️ Error getting memory context: {e}")
+            print(f"[WARN] Error getting memory context: {e}")
 
         return context
     def clear_all_memories(self) -> int:
@@ -547,14 +547,14 @@ class RedisVectorMemory:
         keys = self.redis.keys("axiom:*")
         if keys:
             deleted = self.redis.delete(*keys)
-            print(f"🧹 Deleted {deleted} memory keys")
+            print(f"[CLEAN] Deleted {deleted} memory keys")
 
             # Try to drop indexes
             try:
                 self.redis.ft("idx:axiom:user_traits").dropindex()
                 self.redis.ft("idx:axiom:topic_patterns").dropindex()
                 self.redis.ft("idx:axiom:decisions").dropindex()
-                print("✅ Dropped search indexes")
+                print("[OK] Dropped search indexes")
             except Exception:
                 pass
 
@@ -623,7 +623,7 @@ class RedisVectorMemory:
             # GUARD: Use deterministic encoding
             reasoning_embedding = self.encode_vec(ctx.reasoning)
         except Exception as e:
-            print(f"⚠️  Could not extract traits: {e}")
+            print(f"[WARN]  Could not extract traits: {e}")
             return []
 
         traits = []
@@ -700,7 +700,7 @@ class RedisVectorMemory:
                     },
                 )
             except (ValueError, TypeError) as e:
-                print(f"⚠️  Error reinforcing trait: {e}")
+                print(f"[WARN]  Error reinforcing trait: {e}")
                 return None
         else:
             # Store new trait
@@ -729,7 +729,7 @@ class RedisVectorMemory:
                     },
                 )
             except Exception as e:
-                print(f"⚠️  Error storing trait: {e}")
+                print(f"[WARN]  Error storing trait: {e}")
                 return None
 
         # Set TTL
@@ -774,7 +774,7 @@ class RedisVectorMemory:
             try:
                 embedding = self.encode_vec(description)
             except Exception as e:
-                print(f"⚠️  Could not encode topic pattern: {e}")
+                print(f"[WARN]  Could not encode topic pattern: {e}")
 
         return {
             "pattern_type": pattern_type,
@@ -818,7 +818,7 @@ class RedisVectorMemory:
                     },
                 )
             except (ValueError, TypeError) as e:
-                print(f"⚠️  Error reinforcing pattern: {e}")
+                print(f"[WARN]  Error reinforcing pattern: {e}")
                 return None
         else:
             # Store new pattern
@@ -847,7 +847,7 @@ class RedisVectorMemory:
                     },
                 )
             except Exception as e:
-                print(f"⚠️  Error storing pattern: {e}")
+                print(f"[WARN]  Error storing pattern: {e}")
                 return None
 
         self.redis.expire(pattern_id, self.TOPIC_PATTERN_TTL)
@@ -874,7 +874,7 @@ class RedisVectorMemory:
             try:
                 reasoning_embedding = self.encode_vec(ctx.reasoning).astype(np.float32).tobytes()
             except Exception as e:
-                print(f"⚠️  Could not encode decision reasoning: {e}")
+                print(f"[WARN]  Could not encode decision reasoning: {e}")
 
         # Extract categories
         categories = self._extract_categories(

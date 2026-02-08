@@ -266,7 +266,7 @@ class MemoryContext(BaseModel):
 
         # User traits section
         if self.user_traits:
-            sections.append("🧠 USER PREFERENCES (from past interactions):")
+            sections.append("[BRAIN] USER PREFERENCES (from past interactions):")
             for trait in self.user_traits[:3]:  # Top 3 only
                 desc = trait.get("fact", trait.get("description", ""))
                 conf = trait.get("confidence", 0.5)
@@ -290,7 +290,7 @@ class MemoryContext(BaseModel):
                 verdict = decision.get("verdict", "").upper()
                 topic = decision.get("topic", "")
 
-                verdict_emoji = {"PURSUE": "✅", "EXPLORE": "🔍", "WATCHLIST": "📌", "IGNORE": "❌"}.get(
+                verdict_emoji = {"PURSUE": "[OK]", "EXPLORE": "[SEARCH]", "WATCHLIST": "[NOTE]", "IGNORE": "[X]"}.get(
                     verdict, "•"
                 )
 

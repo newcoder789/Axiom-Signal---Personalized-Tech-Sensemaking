@@ -1,92 +1,200 @@
+"""
+FastAPI wrapper for Axiom with Power (Tools + Memory)
+Uses the existing backend infrastructure properly.
+"""
+
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
-from typing import Optional
-from langchain_groq import ChatGroq
-from langchain_core.output_parsers import JsonOutputParser
-from langchain_core.prompts import ChatPromptTemplate
-from dotenv import load_dotenv
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Optional, Dict, Any, List
 import os
+from dotenv import load_dotenv
+
+# Import existing Axiom infrastructure
+from axiom_with_power import AxiomWithPower, run_axiom_power
 
 load_dotenv()
 
-app = FastAPI(title="Axiom v0")
-    
-# structured input and output 
-class AxiomResponse(BaseModel):
-    summary: str = Field(..., description="Short explanation of the topic")
-    current_status: str = Field(
-        ..., description="Explain relevance based on user's background"
-    )
-    future_advice: str = Field(
-        ...,
-        description="Actionable next steps tailored to the user's profile. If not relevant, explicitly say why.",
-    )
+app = FastAPI(title="Axiom Backend API", version="2.0")
 
+# CORS for frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-class AxiomRequest(BaseModel):
+# ============================================================================
+# Request/Response Models
+# ============================================================================
+
+class VerdictRequest(BaseModel):
     topic: str
-    user_profile: Optional[str] = None
-    
-    
-# llm 
-llm = ChatGroq(
-    model="llama-3.1-8b-instant",
-    api_key=os.getenv("GROQ_API_KEY"),
-    temperature=0.1,
-)
+    content: str
+    context: Optional[Dict[str, Any]] = None
 
-parser = JsonOutputParser(pydantic_object=AxiomResponse)
+class ActionItem(BaseModel):
+    text: str
+    completed: bool = False
 
-prompt = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            """You are Axiom, a tech-scout and decision engine.
-Your job is to explain topics clearly and give honest career-oriented advice.
-Return ONLY valid JSON that matches the given schema.
-Always return ALL fields in the response schema.
-If future advice is weak or not necessary, explicitly state that and explain why.
-Never omit a field.
-No markdown. No explanations. No extra text.
-{format_instructions}
-""",
-        ),
-        (
-            "human",
-            """Topic: {topic}
-User background: {user_profile}""",
-        ),
-    ]
-)
+# ============================================================================
+# Initialize Axiom
+# ============================================================================
 
-chain = prompt | llm | parser
-@app.post("/axiom/run", response_model=AxiomResponse)
-def run_axiom(req: AxiomRequest):
+# Global instance (initialized once)
+axiom_instance = None
+
+def get_axiom():
+    """Get or create Axiom instance"""
+    global axiom_instance
+    if axiom_instance is None:
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+        try:
+            axiom_instance = AxiomWithPower(redis_url=redis_url, debug=True)
+            print("✅ Axiom with Power initialized (Tools + Memory)")
+        except Exception as e:
+            print(f"⚠️  Axiom initialized without memory: {e}")
+    axiom_instance = AxiomWithPower(redis_url="", debug=True)
+    return axiom_instance
+
+# ============================================================================
+# API Endpoints
+# ============================================================================
+
+@app.get("/")
+def read_root():
+    return {
+        "service": "Axiom Backend API",
+        "version": "2.0",
+        "features": ["Memory System", "Tool Evidence", "LangGraph Integration"],
+        "endpoints": ["/api/verdict", "/health"],
+        "status": "running"
+    }
+
+@app.get("/health")
+def health_check():
+    """Health check with system status"""
     try:
-        result = chain.invoke(
-            {
-                "topic": req.topic,
-                "user_profile": req.user_profile or "Not provided",
-                "format_instructions": parser.get_format_instructions(),
-            }
-        )
-        return result
+        axiom = get_axiom()
+        health = axiom.health_check()
+        return health
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return {
+            "status": "degraded",
+            "error": str(e),
+            "timestamp": None
+        }
 
+@app.post("/api/verdict")
+async def get_verdict(request: VerdictRequest):
+    """
+    Get AI-powered verdict using Axiom with Power.
+    
+    This uses:
+    - Memory system (Redis vector DB with LTM + STM)
+    - Tool evidence (freshness checker, market signal, friction estimator)
+    - LangGraph workflow with deterministic rules
+    - LLM fallback for mixed signals
+    """
+    try:
+        axiom = get_axiom()
+        
+        # Build rich user profile from context (for LLM understanding)
+        context = request.context or {}
+        risk_tolerance = context.get("riskTolerance", "medium")
+        time_horizon = context.get("timeHorizon", "3 months")
+        experience_level = context.get("experienceLevel", "intermediate")
+        profile_type = context.get("profile", "developer")
+        
+        # IMPORTANT: Create stable user_profile string for backend memory system
+        # The backend uses hash of this string as user ID, so keep it consistent
+        # Format: "{profile_type} {experience_level} (risk: {risk}, timeline: {time})"
+        user_profile = (
+            f"{profile_type.capitalize()} {experience_level} developer. "
+            f"Risk tolerance: {risk_tolerance}. "
+            f"Timeline: {time_horizon}."
+        )
+        
+        # Use just the topic (the graph will handle the analysis)
+        topic = request.topic
+        
+        # Run Axiom with Power (uses LangGraph with tools + memory)
+        print(f"\n🚀 Running Axiom for: {topic[:50]}...")
+        print(f"📋 User profile: {user_profile}")
+        
+        result = axiom.run(topic=topic, user_profile=user_profile)
+        
+        # Extract verdict object
+        verdict = result.get("verdict")
+        tool_evidence = result.get("tool_evidence", {})
+        memory_context = result.get("memory_context")
+        
+        if not verdict:
+            raise HTTPException(
+                status_code=500,
+                detail="Verdict generation failed - no verdict returned"
+            )
+        
+        # Convert confidence to float (it might be a string like "medium")
+        confidence_value = verdict.confidence
+        if isinstance(confidence_value, str):
+            # Map confidence levels to numeric values
+            confidence_map = {
+                "low": 0.4,
+                "medium": 0.7,
+                "high": 0.9,
+            }
+            confidence_float = confidence_map.get(confidence_value.lower(), 0.7)
+        else:
+            confidence_float = float(confidence_value)
+        
+        # Build response matching frontend expectations
+        response = {
+            "verdict": verdict.verdict,
+            "confidence": confidence_float,
+            "reasoning": verdict.reasoning,
+            "timeline": verdict.timeline if hasattr(verdict, 'timeline') else None,
+            "actionItems": [
+                {"text": item, "completed": False} 
+                for item in (verdict.action_items or [])
+            ] if hasattr(verdict, 'action_items') else [],
+            "reasonCodes": verdict.reason_codes if hasattr(verdict, 'reason_codes') else [],
+            "toolEvidence": {
+                "freshness": tool_evidence.get("freshness", {}),
+                "market": tool_evidence.get("market", {}),
+                "friction": tool_evidence.get("friction", {}),
+            },
+            "analysis": {
+                "feasibility": result.get("reality_check").feasibility if result.get("reality_check") else "medium",
+                "marketSignal": result.get("reality_check").market_signal if result.get("reality_check") else "mixed",
+                "hypeScore": result.get("reality_check").hype_score if result.get("reality_check") else 5,
+                "riskFactors": result.get("reality_check").risk_factors if result.get("reality_check") else [],
+                "evidenceSummary": result.get("reality_check").evidence_summary if result.get("reality_check") else "",
+            },
+            "sources": None,  # Can add web search sources here
+            "relevanceScore": memory_context.relevance_score if memory_context and hasattr(memory_context, 'relevance_score') else 0.0,
+        }
+        
+        print(f"✅ Verdict: {verdict.verdict} ({verdict.confidence} confidence)")
+        return response
+        
+    except Exception as e:
+        print(f"❌ Error in /api/verdict: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        # Return fallback response
+        raise HTTPException(
+            status_code=500,
+            detail=f"Verdict analysis failed: {str(e)}"
+        )
 
-"""
-input: 
-{
-  "topic": "LangGraph",
-  "user_profile": "3rd-year CS student interested in backend + AI, preparing for job market"
-}
+# ============================================================================
+# Run with: python -m uvicorn app:app --reload
+# ============================================================================
 
-
-First Response: 
-{
-  "summary": "LangGraph is a graph-based language model that combines the strengths of both graph neural networks and transformer models. It's designed to capture complex relationships between words and their contexts, making it a promising approach for natural language processing tasks.",
-  "current_status": "Relevant to your background as a 3rd-year CS student interested in backend + AI. You've likely studied graph neural networks and transformer models in your coursework, and LangGraph's architecture is an interesting application of these concepts. However, you may not have hands-on experience with LangGraph specifically, so it's essential to explore its implementation and applications.",
-  "future_advice": "To get started with LangGraph, explore its implementation in popular deep learning frameworks like PyTorch or TensorFlow. You can also look into research papers and pre-trained models to understand its applications in NLP tasks. As you prepare for the job market, focus on developing a strong foundation in graph neural networks, transformer models, and their applications in AI. Practice building and deploying LangGraph-based models to demonstrate your skills to potential employers."
-}
-"""
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

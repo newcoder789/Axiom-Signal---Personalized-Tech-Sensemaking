@@ -52,10 +52,10 @@ class AxiomMemoryManager:
 
         if not self.use_embeddings:
             print(
-                "⚠️  Embeddings disabled or not available - using keyword-based fallback"
+                "[WARN]  Embeddings disabled or not available - using keyword-based fallback"
             )
 
-        print("🧠 Axiom Memory Manager initialized")
+        print("[BRAIN] Axiom Memory Manager initialized")
 
     def derive_user_id(self, user_profile: str) -> str:
         """
@@ -236,7 +236,7 @@ class AxiomMemoryManager:
 
             if keys_to_delete:
                 deleted = self.vector_memory.redis.delete(*keys_to_delete)
-                print(f"🧹 Deleted {deleted} memories for user: {user_id}")
+                print(f"[CLEAN] Deleted {deleted} memories for user: {user_id}")
                 return deleted
 
             return 0

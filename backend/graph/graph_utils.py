@@ -125,7 +125,7 @@ class VerdictOutput(BaseModel):
         ..., description="Decision: pursue, explore, watchlist (uncertain), or ignore"
     )
     reasoning: str = Field(
-        ..., description="2-3 sentences explaining the verdict clearly"
+        ..., description="A detailed, conversational explanation (4-6 sentences) of why this verdict was reached. Be precise, evidence-based, and addressed directly to the user."
     )
     action_items: list[str] = Field(
         ..., description="2-4 specific, testable next steps", min_length=2, max_length=4
@@ -738,6 +738,13 @@ SCOUT RULES:
 ⚠️ When in doubt between ignore and watchlist → choose WATCHLIST (tolerate uncertainty).
 ⚠️ New/recent tech (short time horizon) + mixed/strong market → WATCHLIST, not ignore.
 ⚠️ IGNORE only when BOTH feasibility = "low" AND market_signal = "weak".
+
+REASONING STYLE:
+- Write like a senior engineer advising a colleague. 
+- Be conversational but precise. 
+- Explain the "why" behind the verdict clearly.
+- Mention specific trade-offs (e.g., "It's powerful but the learning curve is steep").
+- START with a direct answer.
 
 Action items must be concrete. If "ignore": state opportunity cost. If "watchlist": suggest re-evaluate in 3 months.
 

@@ -21,9 +21,14 @@ docker run -d \
   -v axiom_redis_data:/data \
   redis:alpine redis-server --appendonly yes
 
+# To run SQL queries:
+  docker exec -it axiom_postgres psql -U axiom -d axiom_dev
+  SELECT id, title, verdict FROM thoughts;
 
 # to run docker-redis for testing
 docker exec -it axiom-redis redis-cli
 
 # get keys
 keys * 
+
+python -m uvicorn app:app --reload

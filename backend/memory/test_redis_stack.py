@@ -5,8 +5,8 @@ try:
     from redis.commands.search.query import Query
 
     print(
-        "✅ SUCCESS! Modern `redis` package with search support is correctly installed."
+        "[OK] SUCCESS! Modern `redis` package with search support is correctly installed."
     )
-    print(f"✅ You can now import: VectorField, IndexDefinition, Query, etc.")
+    print(f"[OK] You can now import: VectorField, IndexDefinition, Query, etc.")
 except ImportError as e:
-    print(f"❌ Import failed: {e}")
+    print(f"[X] Import failed: {e}")
