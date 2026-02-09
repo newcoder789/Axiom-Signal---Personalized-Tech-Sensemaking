@@ -23,6 +23,7 @@ export default function JournalDetailClient({ journalId, initialThoughts }: Jour
             explore: 'var(--accent-blue)',
             watchlist: 'var(--accent-amber)',
             ignore: 'var(--text-muted)',
+            archive: 'var(--text-muted)',
         };
         return colors[verdict] || 'var(--text-muted)';
     };
@@ -190,7 +191,7 @@ export default function JournalDetailClient({ journalId, initialThoughts }: Jour
                                     {selectedThought.title}
                                 </h1>
                                 <button
-                                    onClick={() => router.push(`/journal/${journalId}/write`)}
+                                    onClick={() => router.push(`/journal/${journalId}/write?thought=${selectedThought.id}`)}
                                     style={{
                                         padding: '10px 24px',
                                         background: '#d6a14b',
@@ -251,6 +252,25 @@ export default function JournalDetailClient({ journalId, initialThoughts }: Jour
                                     )}
                                 </div>
 
+                                {(selectedThought.context as any)?.type === 'auto_journal' && (
+                                    <div style={{
+                                        padding: '12px',
+                                        background: 'rgba(96, 165, 250, 0.1)',
+                                        border: '1px solid rgba(96, 165, 250, 0.2)',
+                                        borderRadius: '8px',
+                                        marginBottom: '16px',
+                                        fontSize: '13px',
+                                        color: '#60a5fa'
+                                    }}>
+                                        ⏱️ Focus Session Log
+                                        {(selectedThought.context as any)?.duration && (
+                                            <span style={{ marginLeft: '12px' }}>
+                                                Duration: {(selectedThought.context as any).duration} min
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+
                                 {selectedThought.reasoning && (
                                     <div style={{ marginTop: '16px' }}>
                                         <h3 style={{
@@ -259,7 +279,7 @@ export default function JournalDetailClient({ journalId, initialThoughts }: Jour
                                             marginBottom: '12px',
                                             fontSize: '16px'
                                         }}>
-                                            Reasoning
+                                            {(selectedThought.context as any)?.type === 'auto_journal' ? 'Session Outcome' : 'Reasoning'}
                                         </h3>
                                         <p style={{
                                             color: 'var(--text-primary)',

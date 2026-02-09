@@ -4,6 +4,7 @@ import "./globals.css";
 import Sidebar from "./components/Sidebar";
 import Navbar from "./components/Navbar";
 import { Toaster } from '@/lib/toast';
+import { ClientProvider } from './providers';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,17 +29,20 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <div className="app-layout">
-          <Sidebar />
-          <div className="main-wrapper">
-            <Navbar />
-            <main className="main-content">
-              {children}
-            </main>
+        <ClientProvider>
+          <div className="app-layout">
+            <Sidebar />
+            <div className="main-wrapper">
+              <Navbar />
+              <main className="main-content">
+                {children}
+              </main>
+            </div>
           </div>
-        </div>
+        </ClientProvider>
         <Toaster />
       </body>
     </html>
   );
 }
+

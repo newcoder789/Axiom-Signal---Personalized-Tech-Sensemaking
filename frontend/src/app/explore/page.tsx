@@ -1,676 +1,513 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
-// Types
-type ExploreMode = "trending" | "emerging" | "personalized" | "contrarian";
-type CardType = "trend" | "weak-signal" | "hype-warning" | "connection";
-type Domain = "tech" | "ai" | "web" | "systems" | "research" | "startups";
-
-type ExploreCard = {
+interface Thought {
     id: string;
-    type: CardType;
-    topic: string;
-    summary: string;
-    signals: {
-        market: "growing" | "stable" | "declining";
-        friction: "low" | "medium" | "high";
-        freshness: "safe" | "moderate" | "outdated";
-        confidence: number;
-    };
-    whyItMatters: string[];
-    meta: {
-        sources: number;
-        seenIn: string[];
-        lastUpdated: string;
-    };
-    relatedMemory?: string;
-};
+    title: string;
+    verdict?: string;
+    createdAt?: string;
+}
 
-const demoCards: ExploreCard[] = [
-    {
-        id: "1",
-        type: "trend",
-        topic: "Rust for Systems Programming",
-        summary: "Memory-safe systems language gaining enterprise adoption, especially for CLI tools and infrastructure.",
-        signals: {
-            market: "growing",
-            friction: "medium",
-            freshness: "safe",
-            confidence: 0.82
-        },
-        whyItMatters: [
-            "Eliminates memory bugs without garbage collection",
-            "Growing job market in infrastructure roles",
-            "Early adoption phase — good entry point"
-        ],
-        meta: {
-            sources: 8,
-            seenIn: ["Jobs", "GitHub", "Tech blogs"],
-            lastUpdated: "Jan 2026"
-        }
-    },
-    {
-        id: "2",
-        type: "weak-signal",
-        topic: "HTMX for Simple Web Apps",
-        summary: "Hypermedia-driven approach to web apps without heavy JavaScript frameworks.",
-        signals: {
-            market: "stable",
-            friction: "low",
-            freshness: "safe",
-            confidence: 0.65
-        },
-        whyItMatters: [
-            "Reduces frontend complexity dramatically",
-            "Contrarian to SPA trend but pragmatic",
-            "Low friction, high velocity for solo devs"
-        ],
-        meta: {
-            sources: 4,
-            seenIn: ["GitHub", "Indie hackers"],
-            lastUpdated: "Dec 2025"
-        },
-        relatedMemory: "You explored Django templates last month"
-    },
-    {
-        id: "3",
-        type: "hype-warning",
-        topic: "Web3 Development Frameworks",
-        summary: "Blockchain development tools seeing high noise-to-signal ratio.",
-        signals: {
-            market: "declining",
-            friction: "high",
-            freshness: "moderate",
-            confidence: 0.48
-        },
-        whyItMatters: [
-            "High buzz but unclear product-market fit",
-            "Friction remains extremely high",
-            "Market cooling significantly"
-        ],
-        meta: {
-            sources: 12,
-            seenIn: ["Twitter", "VC blogs"],
-            lastUpdated: "Feb 2026"
-        }
-    },
-    {
-        id: "4",
-        type: "connection",
-        topic: "Temporal Workflow Engine",
-        summary: "Distributed workflow orchestration for long-running processes.",
-        signals: {
-            market: "growing",
-            friction: "medium",
-            freshness: "safe",
-            confidence: 0.71
-        },
-        whyItMatters: [
-            "Solves distributed state management",
-            "Related to your FastAPI exploration",
-            "Enterprise-proven, developer-friendly"
-        ],
-        meta: {
-            sources: 5,
-            seenIn: ["Jobs", "Engineering blogs"],
-            lastUpdated: "Jan 2026"
-        },
-        relatedMemory: "Connects to your 'Async task processing' journal entry"
-    }
-];
-
-const domains: Domain[] = ["tech", "ai", "web", "systems", "research", "startups"];
+interface Journal {
+    id: string;
+    title: string;
+    icon?: string;
+    thoughtCount?: number;
+}
 
 export default function ExplorePage() {
     const router = useRouter();
+    const [thought, setThought] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+    const [recentThoughts, setRecentThoughts] = useState<Thought[]>([]);
+    const [journals, setJournals] = useState<Journal[]>([]);
 
-    // Left Panel State
-    const [exploreMode, setExploreMode] = useState<ExploreMode>("personalized");
-    const [selectedDomains, setSelectedDomains] = useState<Domain[]>(["tech", "web"]);
-    const [timeHorizon, setTimeHorizon] = useState("3-6-months");
-    const [signalStrength, setSignalStrength] = useState(50); // 0 = weak, 100 = strong
+    useEffect(() => {
+        // Fetch recent thoughts
+        fetch('/api/thoughts/recent')
+            .then(res => res.json())
+            .then(data => setRecentThoughts(Array.isArray(data.thoughts) ? data.thoughts : []))
+            .catch(() => setRecentThoughts([]));
 
-    // Cards State
-    const [cards] = useState<ExploreCard[]>(demoCards);
-    const [selectedCard, setSelectedCard] = useState<ExploreCard | null>(null);
+        // Fetch journals
+        fetch('/api/journals')
+            .then(res => res.json())
+            .then(data => setJournals(Array.isArray(data.journals) ? data.journals : []))
+            .catch(() => setJournals([]));
+    }, []);
 
-    // Right Panel State
-    const [activeTab, setActiveTab] = useState<"memory" | "why" | "agent">("why");
+    const handleSave = async () => {
+        if (!thought.trim()) return;
+        setIsSaving(true);
+        try {
+            const res = await fetch('/api/thoughts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    content: thought,
+                    title: thought.slice(0, 50) + (thought.length > 50 ? "..." : "")
+                })
+            });
 
-    const toggleDomain = (domain: Domain) => {
-        setSelectedDomains(prev =>
-            prev.includes(domain)
-                ? prev.filter(d => d !== domain)
-                : [...prev, domain]
-        );
-    };
+            if (!res.ok) throw new Error('Failed to save');
 
-    const handleSendToDecide = (card: ExploreCard) => {
-        // Navigate to Decide with pre-filled context
-        router.push(`/decide?topic=${encodeURIComponent(card.topic)}&source=explore`);
-    };
-
-    const handleSaveToJournal = (card: ExploreCard) => {
-        alert(`Saved "${card.topic}" to Journal with context and signals`);
-        // TODO: Actual API call
-    };
-
-    const getCardIcon = (type: CardType) => {
-        switch (type) {
-            case "trend": return "🔥";
-            case "weak-signal": return "🌱";
-            case "hype-warning": return "⚠️";
-            case "connection": return "🧩";
+            setThought('');
+            // Refresh thoughts
+            const refreshRes = await fetch('/api/thoughts/recent');
+            const data = await refreshRes.json();
+            setRecentThoughts(Array.isArray(data.thoughts) ? data.thoughts : []);
+        } catch (e) {
+            console.error(e);
+            alert('Failed to save thought. Please try again.');
+        } finally {
+            setIsSaving(false);
         }
     };
 
-    const getSignalColor = (value: string) => {
-        if (value === "growing" || value === "low" || value === "safe") return "var(--accent-green)";
-        if (value === "stable" || value === "medium" || value === "moderate") return "var(--accent-yellow)";
-        return "var(--accent-red)";
+    const handleDecide = () => {
+        if (!thought.trim()) return;
+        // Navigate to decide page with the thought as a topic
+        router.push(`/decide?topic=${encodeURIComponent(thought)}`);
     };
 
+    const prompts = [
+        { icon: '🤔', text: "I'm confused about..." },
+        { icon: '🔍', text: "I'm curious about..." },
+        { icon: '⚖️', text: "I'm torn between..." },
+        { icon: '🎯', text: "I want to explore..." },
+    ];
+
     return (
-        <div style={{ display: "flex", height: "calc(100vh - 56px)", overflow: "hidden" }}>
-
-            {/* LEFT: EXPLORE CONTROLS (260px) */}
+        <div style={{ display: 'flex', height: '100%', background: '#0f1115' }}>
+            {/* Left Sidebar - Recent Activity */}
             <div style={{
-                width: "260px",
-                minWidth: "260px",
-                borderRight: "1px solid var(--border-primary)",
-                background: "var(--bg-secondary)",
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden"
+                width: '240px',
+                borderRight: '1px solid #222632',
+                background: '#151821',
+                padding: '20px 12px',
+                overflowY: 'auto',
+                flexShrink: 0
             }}>
-                <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
+                <h2 style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    color: '#a1a6b3',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                }}>
+                    <span style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        background: '#22c55e'
+                    }}></span>
+                    Recent Activity
+                </h2>
 
-                    {/* Explore Mode */}
-                    <div style={{ marginBottom: "24px" }}>
-                        <h3 className="label mb-3">Explore Mode</h3>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                            {[
-                                { id: "personalized", icon: "🎯", label: "Personalized" },
-                                { id: "trending", icon: "🔥", label: "Trending" },
-                                { id: "emerging", icon: "🌱", label: "Emerging" },
-                                { id: "contrarian", icon: "🧪", label: "Contrarian" }
-                            ].map(mode => (
-                                <button
-                                    key={mode.id}
-                                    onClick={() => setExploreMode(mode.id as ExploreMode)}
-                                    className={`btn ${exploreMode === mode.id ? "btn-secondary" : "btn-ghost"}`}
-                                    style={{
-                                        justifyContent: "flex-start",
-                                        fontSize: "13px",
-                                        padding: "8px 12px"
-                                    }}
-                                >
-                                    <span style={{ marginRight: "8px" }}>{mode.icon}</span>
-                                    {mode.label}
-                                </button>
-                            ))}
-                        </div>
+                {recentThoughts.length === 0 ? (
+                    <div style={{
+                        fontSize: '13px',
+                        color: '#666',
+                        padding: '16px',
+                        background: '#0f1115',
+                        borderRadius: '8px',
+                        textAlign: 'center'
+                    }}>
+                        No recent thoughts
                     </div>
-
-                    {/* Domain Filters */}
-                    <div style={{ marginBottom: "24px" }}>
-                        <h3 className="label mb-3">Domains</h3>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                            {domains.map(domain => (
-                                <button
-                                    key={domain}
-                                    onClick={() => toggleDomain(domain)}
-                                    className={`btn btn-sm ${selectedDomains.includes(domain) ? "btn-secondary" : "btn-ghost"}`}
-                                    style={{
-                                        fontSize: "11px",
-                                        padding: "4px 10px",
-                                        textTransform: "capitalize"
-                                    }}
-                                >
-                                    {domain}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Time Horizon */}
-                    <div style={{ marginBottom: "24px" }}>
-                        <h3 className="label mb-3">Time Horizon</h3>
-                        <select
-                            value={timeHorizon}
-                            onChange={(e) => setTimeHorizon(e.target.value)}
-                            className="input"
-                            style={{ fontSize: "13px" }}
-                        >
-                            <option value="this-month">This month</option>
-                            <option value="3-6-months">3–6 months</option>
-                            <option value="1-2-years">1–2 years</option>
-                        </select>
-                    </div>
-
-                    {/* Signal Strength */}
-                    <div style={{ marginBottom: "24px" }}>
-                        <h3 className="label mb-2">Signal Strength</h3>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginBottom: "6px" }}>
-                            <span className="caption">Weak</span>
-                            <span className="caption">Strong</span>
-                        </div>
-                        <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={signalStrength}
-                            onChange={(e) => setSignalStrength(parseInt(e.target.value))}
-                            style={{ width: "100%" }}
-                        />
-                    </div>
-
-                    {/* Saved Streams */}
-                    <div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                            <h3 className="label">Saved Streams</h3>
-                            <button className="btn btn-ghost" style={{ padding: "2px 6px", fontSize: "12px" }}>+</button>
-                        </div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                            {["AI infra", "Career growth"].map(stream => (
-                                <button key={stream} className="btn btn-ghost" style={{
-                                    justifyContent: "flex-start",
-                                    fontSize: "12px",
-                                    padding: "6px 10px"
-                                }}>
-                                    📌 {stream}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* CENTER: EXPLORE FEED (Flex, max 900px) */}
-            <div style={{ flex: 1, overflowY: "auto", display: "flex", justifyContent: "center", background: "var(--bg-primary)" }}>
-                <div style={{ width: "100%", maxWidth: "900px", padding: "32px 48px" }}>
-
-                    {/* Header */}
-                    <div style={{ marginBottom: "24px" }}>
-                        <h1 className="h1 mb-2">Explore</h1>
-                        <p className="body" style={{ color: "var(--text-secondary)" }}>
-                            Discover what deserves a decision — personalized, evidence-grounded, memory-aware.
-                        </p>
-                    </div>
-
-                    {/* Explore Cards */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                        {cards.map(card => (
-                            <div
-                                key={card.id}
-                                className="card card-hover"
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {recentThoughts.map((t, i) => (
+                            <button
+                                key={t.id}
+                                onClick={() => router.push(t.verdict ? `/decide?thought=${t.id}` : `/focus?thought=${t.id}`)}
                                 style={{
-                                    padding: "20px",
-                                    borderLeft: card.type === "hype-warning" ? "3px solid var(--accent-red)" :
-                                        card.type === "weak-signal" ? "3px solid var(--accent-green)" :
-                                            card.type === "connection" ? "3px solid var(--accent-blue)" : "3px solid transparent"
+                                    width: '100%',
+                                    padding: '10px 12px',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    transition: 'background 0.15s'
                                 }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = '#1c2029'}
+                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                             >
-                                {/* Header */}
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "12px" }}>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
-                                            <span style={{ fontSize: "18px" }}>{getCardIcon(card.type)}</span>
-                                            <h3 className="h3">{card.topic}</h3>
-                                        </div>
-                                        <p className="body" style={{ color: "var(--text-secondary)" }}>{card.summary}</p>
-                                    </div>
-                                </div>
-
-                                {/* Signals Row */}
                                 <div style={{
-                                    display: "grid",
-                                    gridTemplateColumns: "repeat(4, 1fr)",
-                                    gap: "12px",
-                                    marginBottom: "16px",
-                                    padding: "12px",
-                                    background: "var(--bg-secondary)",
-                                    borderRadius: "8px"
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'flex-start',
+                                    gap: '8px'
                                 }}>
-                                    <div>
-                                        <div className="caption mb-1">Market</div>
-                                        <div style={{
-                                            fontSize: "12px",
-                                            fontWeight: 600,
-                                            color: getSignalColor(card.signals.market),
-                                            textTransform: "capitalize"
-                                        }}>
-                                            {card.signals.market === "growing" ? "↑ " : card.signals.market === "declining" ? "↓ " : "→ "}
-                                            {card.signals.market}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div className="caption mb-1">Friction</div>
-                                        <div style={{
-                                            fontSize: "12px",
-                                            fontWeight: 600,
-                                            color: getSignalColor(card.signals.friction),
-                                            textTransform: "capitalize"
-                                        }}>
-                                            {card.signals.friction}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div className="caption mb-1">Freshness</div>
-                                        <div style={{
-                                            fontSize: "12px",
-                                            fontWeight: 600,
-                                            color: getSignalColor(card.signals.freshness),
-                                            textTransform: "capitalize"
-                                        }}>
-                                            {card.signals.freshness}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div className="caption mb-1">Confidence</div>
-                                        <div style={{ fontSize: "12px", fontWeight: 600 }}>
-                                            {(card.signals.confidence * 100).toFixed(0)}%
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Why It Matters */}
-                                <div style={{ marginBottom: "16px" }}>
-                                    <div className="label mb-2">Why it matters</div>
-                                    <ul style={{ margin: 0, paddingLeft: "20px" }}>
-                                        {card.whyItMatters.map((reason, i) => (
-                                            <li key={i} className="body" style={{ marginBottom: "4px", lineHeight: 1.5 }}>
-                                                {reason}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-
-                                {/* Related Memory */}
-                                {card.relatedMemory && (
-                                    <div style={{
-                                        padding: "10px 12px",
-                                        background: "var(--accent-blue-muted)",
-                                        borderRadius: "6px",
-                                        marginBottom: "16px",
-                                        borderLeft: "2px solid var(--accent-blue)"
+                                    <span style={{
+                                        fontSize: '13px',
+                                        color: '#e6e8eb',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                        flex: 1
                                     }}>
-                                        <div className="caption" style={{ color: "var(--accent-blue)" }}>
-                                            🧠 Memory: {card.relatedMemory}
-                                        </div>
-                                    </div>
+                                        {t.title || 'Untitled'}
+                                    </span>
+                                    <span style={{
+                                        fontSize: '11px',
+                                        color: '#666',
+                                        flexShrink: 0
+                                    }}>
+                                        {t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}
+                                    </span>
+                                </div>
+                                {t.verdict && (
+                                    <span style={{
+                                        display: 'inline-block',
+                                        marginTop: '6px',
+                                        fontSize: '10px',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.05em',
+                                        padding: '2px 8px',
+                                        borderRadius: '4px',
+                                        background: t.verdict === 'pursue' ? 'rgba(34, 197, 94, 0.15)' :
+                                            t.verdict === 'explore' ? 'rgba(59, 130, 246, 0.15)' :
+                                                'rgba(255, 255, 255, 0.05)',
+                                        color: t.verdict === 'pursue' ? '#22c55e' :
+                                            t.verdict === 'explore' ? '#3b82f6' :
+                                                '#a1a6b3'
+                                    }}>
+                                        {t.verdict}
+                                    </span>
                                 )}
-
-                                {/* Actions */}
-                                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                                    <button
-                                        onClick={() => setSelectedCard(card)}
-                                        className="btn btn-secondary btn-sm"
-                                    >
-                                        Explore Deeper
-                                    </button>
-                                    <button
-                                        onClick={() => handleSendToDecide(card)}
-                                        className="btn btn-primary btn-sm"
-                                    >
-                                        → Decide
-                                    </button>
-                                    <button
-                                        onClick={() => handleSaveToJournal(card)}
-                                        className="btn btn-ghost btn-sm"
-                                    >
-                                        💾 Save
-                                    </button>
-                                    <button className="btn btn-ghost btn-sm">
-                                        Track
-                                    </button>
-                                </div>
-
-                                {/* Meta Footer */}
-                                <div style={{
-                                    marginTop: "12px",
-                                    paddingTop: "12px",
-                                    borderTop: "1px solid var(--border-primary)",
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    fontSize: "11px",
-                                    color: "var(--text-muted)"
-                                }}>
-                                    <span>{card.meta.sources} sources</span>
-                                    <span>Seen in: {card.meta.seenIn.join(", ")}</span>
-                                    <span>Updated: {card.meta.lastUpdated}</span>
-                                </div>
-                            </div>
+                            </button>
                         ))}
                     </div>
-                </div>
-            </div>
+                )}
 
-            {/* RIGHT: INSIGHT & MEMORY (360px) */}
-            <div style={{
-                width: "360px",
-                minWidth: "360px",
-                borderLeft: "1px solid var(--border-primary)",
-                background: "var(--bg-secondary)",
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden"
-            }}>
-
-                {/* Tabs */}
-                <div style={{
-                    display: "flex",
-                    borderBottom: "1px solid var(--border-primary)"
+                {/* Journals Section */}
+                <h2 style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    color: '#a1a6b3',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    marginTop: '32px',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
                 }}>
-                    {(["why", "memory", "agent"] as const).map(tab => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className="btn btn-ghost"
-                            style={{
-                                flex: 1,
-                                borderRadius: 0,
-                                borderBottom: activeTab === tab ? "2px solid var(--accent-blue)" : "2px solid transparent",
-                                fontSize: "12px",
-                                textTransform: "capitalize",
-                                padding: "12px"
-                            }}
-                        >
-                            {tab === "why" ? "Why This?" : tab === "memory" ? "Memory" : "Agent"}
-                        </button>
-                    ))}
-                </div>
+                    <span style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        background: '#f97316'
+                    }}></span>
+                    Journals
+                </h2>
 
-                {/* Content */}
-                <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
-
-                    {activeTab === "why" && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                            <div>
-                                <h3 className="label mb-3">Why you're seeing these signals</h3>
-                                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                                    <div className="card card-sm">
-                                        <div className="body mb-1">✓ You're a <strong>Backend dev</strong></div>
-                                        <div className="caption">Profile match</div>
+                {journals.length === 0 ? (
+                    <div style={{
+                        fontSize: '13px',
+                        color: '#666',
+                        padding: '16px',
+                        background: '#0f1115',
+                        borderRadius: '8px',
+                        textAlign: 'center'
+                    }}>
+                        No journals yet
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {journals.map((j) => (
+                            <button
+                                key={j.id}
+                                onClick={() => router.push(`/journal/${j.id}`)}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 12px',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px',
+                                    transition: 'background 0.15s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = '#1c2029'}
+                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            >
+                                <span style={{ fontSize: '18px' }}>{j.icon || '📓'}</span>
+                                <div>
+                                    <div style={{ fontSize: '13px', color: '#e6e8eb' }}>
+                                        {j.title}
                                     </div>
-                                    <div className="card card-sm">
-                                        <div className="body mb-1">✓ You explored <strong>Redis + scaling</strong></div>
-                                        <div className="caption">Related to current cards</div>
-                                    </div>
-                                    <div className="card card-sm">
-                                        <div className="body mb-1">✓ <strong>{exploreMode === "personalized" ? "Personalized" : "Trending"}</strong> mode active</div>
-                                        <div className="caption">Prioritizing {exploreMode === "personalized" ? "relevance" : "popularity"}</div>
-                                    </div>
-                                    <div className="card card-sm">
-                                        <div className="body mb-1">✓ Risk tolerance: <strong>Medium</strong></div>
-                                        <div className="caption">Balancing safety and opportunity</div>
+                                    <div style={{ fontSize: '11px', color: '#666' }}>
+                                        {j.thoughtCount || 0} thoughts
                                     </div>
                                 </div>
-                            </div>
-
-                            <div style={{
-                                padding: "12px",
-                                background: "var(--bg-tertiary)",
-                                borderRadius: "8px",
-                                border: "1px dashed var(--border-primary)"
-                            }}>
-                                <div className="caption" style={{ fontStyle: "italic", lineHeight: 1.5 }}>
-                                    <strong>This is not ChatGPT.</strong> These cards are evidence-weighted, memory-aware, and personalized to your exploration history.
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {activeTab === "memory" && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                            <h3 className="label mb-2">Related to your past</h3>
-
-                            <div className="card card-sm card-hover" style={{ cursor: "pointer" }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                                    <div className="font-medium" style={{ fontSize: "13px" }}>FastAPI Decision</div>
-                                    <span className="verdict-badge verdict-pursue" style={{ fontSize: "9px" }}>pursue</span>
-                                </div>
-                                <div className="caption mb-2">You decided to pursue FastAPI 2 days ago</div>
-                                <div className="caption" style={{ fontSize: "11px", color: "var(--accent-blue)" }}>
-                                    → Temporal connects to async workflows
-                                </div>
-                            </div>
-
-                            <div className="card card-sm card-hover" style={{ cursor: "pointer" }}>
-                                <div className="font-medium mb-1" style={{ fontSize: "13px" }}>Journal: Async task processing</div>
-                                <div className="caption">You explored this topic 14 days ago</div>
-                            </div>
-
-                            <div className="card card-sm" style={{ background: "var(--accent-yellow-muted)", borderColor: "var(--accent-yellow)" }}>
-                                <div className="caption" style={{ color: "var(--accent-yellow)" }}>
-                                    ⚠️ You previously ignored Kubernetes — Temporal has similar complexity
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {activeTab === "agent" && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                            <h3 className="label mb-2">Agent Actions</h3>
-
-                            <button className="btn btn-secondary" style={{ width: "100%", justifyContent: "flex-start" }}>
-                                📝 Summarize today's signals
                             </button>
-                            <button className="btn btn-secondary" style={{ width: "100%", justifyContent: "flex-start" }}>
-                                🧪 Find one contrarian idea
-                            </button>
-                            <button className="btn btn-secondary" style={{ width: "100%", justifyContent: "flex-start" }}>
-                                📧 Generate daily digest
-                            </button>
-                            <button className="btn btn-secondary" style={{ width: "100%", justifyContent: "flex-start" }}>
-                                🎓 Create learning path
-                            </button>
+                        ))}
+                    </div>
+                )}
 
-                            <div style={{
-                                marginTop: "16px",
-                                padding: "12px",
-                                background: "var(--bg-tertiary)",
-                                borderRadius: "8px"
-                            }}>
-                                <div className="label mb-2">Last Run</div>
-                                <div className="caption">Daily digest sent 8h ago</div>
-                                <div className="caption mt-1">3 new weak signals identified</div>
-                            </div>
-                        </div>
-                    )}
-                </div>
+                <button
+                    onClick={() => router.push('/journal')}
+                    style={{
+                        width: '100%',
+                        marginTop: '12px',
+                        padding: '10px',
+                        background: 'transparent',
+                        border: '1px dashed #222632',
+                        borderRadius: '6px',
+                        color: '#a1a6b3',
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s'
+                    }}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = '#d6a14b';
+                        e.currentTarget.style.color = '#d6a14b';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = '#222632';
+                        e.currentTarget.style.color = '#a1a6b3';
+                    }}
+                >
+                    + New Journal
+                </button>
             </div>
 
-            {/* EXPLORE DETAIL MODAL */}
-            {selectedCard && (
-                <div
-                    style={{
-                        position: "fixed",
-                        inset: 0,
-                        background: "rgba(0,0,0,0.85)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        zIndex: 200,
-                        padding: "32px"
-                    }}
-                    onClick={() => setSelectedCard(null)}
-                >
-                    <div
-                        className="card animate-fade-in"
-                        style={{
-                            width: "100%",
-                            maxWidth: "800px",
-                            maxHeight: "90vh",
-                            overflowY: "auto",
-                            padding: "32px"
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "20px" }}>
+            {/* Center - Main Workbench */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '40px' }}>
+                <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+                    <h1 style={{
+                        fontSize: '28px',
+                        fontWeight: 700,
+                        color: '#e6e8eb',
+                        marginBottom: '8px'
+                    }}>
+                        Think & Explore
+                    </h1>
+                    <p style={{
+                        fontSize: '15px',
+                        color: '#a1a6b3',
+                        marginBottom: '32px'
+                    }}>
+                        Capture ideas, review your history, and gain clarity before deciding.
+                    </p>
+
+                    {/* Thought Capture Card */}
+                    <div style={{
+                        padding: '24px',
+                        background: '#151821',
+                        border: '1px solid #222632',
+                        borderRadius: '12px',
+                        marginBottom: '24px'
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            marginBottom: '20px'
+                        }}>
+                            <div style={{
+                                width: '40px',
+                                height: '40px',
+                                borderRadius: '10px',
+                                background: 'rgba(59, 130, 246, 0.1)',
+                                border: '1px solid rgba(59, 130, 246, 0.2)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '20px'
+                            }}>
+                                ✨
+                            </div>
                             <div>
-                                <h2 className="h1 mb-2">{selectedCard.topic}</h2>
-                                <p className="body" style={{ color: "var(--text-secondary)" }}>{selectedCard.summary}</p>
-                            </div>
-                            <button
-                                onClick={() => setSelectedCard(null)}
-                                className="btn btn-ghost"
-                                style={{ padding: "8px" }}
-                            >
-                                ✕
-                            </button>
-                        </div>
-
-                        <div style={{ marginBottom: "24px" }}>
-                            <h3 className="h3 mb-3">What makes this worth exploring?</h3>
-                            <ul style={{ margin: 0, paddingLeft: "20px" }}>
-                                {selectedCard.whyItMatters.map((reason, i) => (
-                                    <li key={i} className="body" style={{ marginBottom: "8px", lineHeight: 1.6 }}>
-                                        {reason}
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-
-                        <div style={{ marginBottom: "24px" }}>
-                            <h3 className="h3 mb-3">Evidence Timeline</h3>
-                            <div className="card" style={{ padding: "16px", background: "var(--bg-tertiary)" }}>
-                                <div className="caption">
-                                    First appeared: Dec 2025<br />
-                                    Peak mentions: Jan 2026<br />
-                                    Trend: {selectedCard.signals.market}
-                                </div>
+                                <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#e6e8eb' }}>
+                                    Start Thinking
+                                </h2>
+                                <p style={{ fontSize: '13px', color: '#666' }}>
+                                    Capture a raw thought or confusing idea
+                                </p>
                             </div>
                         </div>
 
-                        <div style={{ display: "flex", gap: "12px" }}>
+                        <textarea
+                            value={thought}
+                            onChange={(e) => setThought(e.target.value)}
+                            placeholder="What's on your mind? What are you confused, curious, or unsure about?"
+                            style={{
+                                width: '100%',
+                                height: '140px',
+                                padding: '16px',
+                                background: '#0f1115',
+                                border: '1px solid #222632',
+                                borderRadius: '8px',
+                                color: '#e6e8eb',
+                                fontSize: '15px',
+                                lineHeight: '1.6',
+                                resize: 'none',
+                                outline: 'none',
+                                fontFamily: 'inherit'
+                            }}
+                            onFocus={(e) => e.currentTarget.style.borderColor = '#d6a14b'}
+                            onBlur={(e) => e.currentTarget.style.borderColor = '#222632'}
+                        />
+
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginTop: '16px',
+                            paddingTop: '16px',
+                            borderTop: '1px solid #222632'
+                        }}>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                    onClick={handleSave}
+                                    disabled={!thought.trim() || isSaving}
+                                    style={{
+                                        padding: '10px 16px',
+                                        background: '#222632',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        color: '#e6e8eb',
+                                        fontSize: '13px',
+                                        fontWeight: 500,
+                                        cursor: !thought.trim() || isSaving ? 'not-allowed' : 'pointer',
+                                        opacity: !thought.trim() || isSaving ? 0.5 : 1,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                    }}
+                                >
+                                    💾 Save
+                                </button>
+                                <button
+                                    onClick={handleDecide}
+                                    disabled={!thought.trim()}
+                                    style={{
+                                        padding: '10px 16px',
+                                        background: 'transparent',
+                                        border: '1px solid #222632',
+                                        borderRadius: '6px',
+                                        color: '#a1a6b3',
+                                        fontSize: '13px',
+                                        fontWeight: 500,
+                                        cursor: !thought.trim() ? 'not-allowed' : 'pointer',
+                                        opacity: !thought.trim() ? 0.5 : 1,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                    }}
+                                >
+                                    🧠 Analyze
+                                </button>
+                            </div>
                             <button
-                                onClick={() => {
-                                    handleSendToDecide(selectedCard);
-                                    setSelectedCard(null);
+                                onClick={handleDecide}
+                                disabled={!thought.trim()}
+                                style={{
+                                    padding: '10px 20px',
+                                    background: '#d6a14b',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    color: '#000',
+                                    fontSize: '13px',
+                                    fontWeight: 600,
+                                    cursor: !thought.trim() ? 'not-allowed' : 'pointer',
+                                    opacity: !thought.trim() ? 0.5 : 1
                                 }}
-                                className="btn btn-primary"
                             >
-                                Send to Decide →
-                            </button>
-                            <button
-                                onClick={() => {
-                                    handleSaveToJournal(selectedCard);
-                                    setSelectedCard(null);
-                                }}
-                                className="btn btn-secondary"
-                            >
-                                💾 Save to Journal
-                            </button>
-                            <button className="btn btn-secondary">
-                                📌 Track This
+                                Decide Now →
                             </button>
                         </div>
                     </div>
+
+                    {/* Thinking Prompts */}
+                    <div style={{
+                        padding: '24px',
+                        background: '#151821',
+                        border: '1px solid #222632',
+                        borderRadius: '12px'
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            marginBottom: '20px'
+                        }}>
+                            <div style={{
+                                width: '40px',
+                                height: '40px',
+                                borderRadius: '10px',
+                                background: 'rgba(168, 85, 247, 0.1)',
+                                border: '1px solid rgba(168, 85, 247, 0.2)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '20px'
+                            }}>
+                                💡
+                            </div>
+                            <div>
+                                <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#e6e8eb' }}>
+                                    Thinking Prompts
+                                </h2>
+                                <p style={{ fontSize: '13px', color: '#666' }}>
+                                    Kickstart your brain with these angles
+                                </p>
+                            </div>
+                        </div>
+
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(2, 1fr)',
+                            gap: '12px'
+                        }}>
+                            {prompts.map((prompt, i) => (
+                                <button
+                                    key={i}
+                                    onClick={() => setThought(prompt.text)}
+                                    style={{
+                                        padding: '16px',
+                                        background: '#0f1115',
+                                        border: '1px solid #222632',
+                                        borderRadius: '8px',
+                                        textAlign: 'left',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '12px',
+                                        transition: 'all 0.15s'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.borderColor = '#d6a14b';
+                                        e.currentTarget.style.background = '#1c2029';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.borderColor = '#222632';
+                                        e.currentTarget.style.background = '#0f1115';
+                                    }}
+                                >
+                                    <span style={{ fontSize: '24px' }}>{prompt.icon}</span>
+                                    <span style={{ fontSize: '14px', color: '#a1a6b3' }}>
+                                        {prompt.text}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                 </div>
-            )}
+            </div>
         </div>
     );
 }

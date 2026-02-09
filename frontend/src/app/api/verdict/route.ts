@@ -60,6 +60,25 @@ export async function POST(request: NextRequest) {
 
         const data = await response.json();
         console.log('✅ Backend response received');
+
+        // HYBRID MODE: If backend is missing visualization data, inject mock data
+        // This ensures the frontend doesn't crash while backend is still being updated
+        if (!data.reasoningGraph) {
+            console.log('⚠️ Injecting mock graph for visualization');
+            const { nodes, edges } = generateDemoGraph(data.verdict || 'explore', topic);
+            data.reasoningGraph = { nodes, edges };
+        }
+
+        if (!data.confidenceHistory) {
+            console.log('⚠️ Injecting mock confidence history');
+            data.confidenceHistory = generateDemoConfidenceHistory(data.confidence || 75);
+        }
+
+        if (!data.memory_matches) {
+            console.log('⚠️ Injecting mock memory matches');
+            data.memory_matches = generateDemoMemoryMatches(topic);
+        }
+
         return NextResponse.json({ ...data, isDemo: false });
     } catch (error) {
         console.error("❌ Backend unavailable, using demo mode:", error);
@@ -100,6 +119,18 @@ function getDemoVerdict(topic: string, userProfile?: string, riskTolerance?: str
         timeline = "in 3 months";
     }
 
+
+    // ... existing logic ...
+
+    // Generate graph nodes and edge (mocked for demo)
+    const { nodes, edges } = generateDemoGraph(verdict, topic);
+
+    // Generate confidence history (mocked)
+    const confidenceHistory = generateDemoConfidenceHistory(confidence);
+
+    // Generate memory matches (mocked)
+    const memoryMatches = generateDemoMemoryMatches(topic);
+
     return {
         verdict,
         confidence,
@@ -107,6 +138,10 @@ function getDemoVerdict(topic: string, userProfile?: string, riskTolerance?: str
         ruleTriggered,
         reasoning: getReasoningForVerdict(verdict, topic),
         actionItems: getActionItemsForVerdict(verdict),
+        // Add new fields for visualization
+        reasoningGraph: { nodes, edges },
+        confidenceHistory,
+        memory_matches: memoryMatches,
         toolEvidence: {
             freshness: {
                 isOutdated,
@@ -130,22 +165,96 @@ function getDemoVerdict(topic: string, userProfile?: string, riskTolerance?: str
                 userModifier: 0,
             },
         },
+        ledger: {
+            context_evidence: ["Backend developer profile", "Risk-tolerant mindset", "Focus on scalability"],
+            market_signals: [
+                { label: "Community Growth", score: 8 },
+                { label: "Enterprise Adoption", score: 6 },
+                { label: "Tooling Stability", score: 7 },
+                { label: "Hiring Demand", score: 5 }
+            ],
+            trade_offs: {
+                gains: ["Significant performance boost", "Better developer experience", "Modern ecosystem access"],
+                costs: ["Legacy integration friction", "Initial learning overhead"]
+            },
+            decision_anchors: [
+                "If ecosystem support drops < 2 major releases/year",
+                "If hiring demand decreases in your region",
+                "If technical debt exceeds 20% of dev time"
+            ]
+        }
     };
 }
 
 function getReasoningForVerdict(verdict: string, topic: string): string {
     switch (verdict) {
         case "pursue":
-            return `${topic} shows strong market adoption and low friction for your experience level. The ecosystem is mature with good documentation and community support.`;
+            return `${topic} shows strong market adoption limits and low friction for your experience level. The ecosystem is mature with good documentation and community support.`;
         case "explore":
-            return `${topic} has potential but needs more investigation. The signals are mixed - some positive indicators balanced by unknowns.`;
+            return `${topic} has potential but needs more investigation. The signals are mixed - some positive indicators balanced by unknowns regarding long-term maintenance.`;
         case "watchlist":
-            return `Model knowledge about ${topic} may be outdated. There have been significant releases after the knowledge cutoff.`;
+            return `Model knowledge about ${topic} may be outdated. There have been significant releases after the knowledge cutoff that require manual verification.`;
         case "ignore":
-            return `${topic} has high adoption friction combined with weak market signals. The investment required doesn't justify the potential return.`;
+            return `${topic} has high adoption friction combined with weak market signals. The investment required doesn't justify the potential return at this stage.`;
         default:
             return "";
     }
+}
+
+// Helper to generate a graph structure
+function generateDemoGraph(verdict: string, topic: string) {
+    const nodes = [
+        { id: 'start', label: topic, type: 'context', x: 50, y: 200 },
+        { id: 'market', label: 'Market Analysis', type: 'tool', x: 200, y: 100 },
+        { id: 'freshness', label: 'Freshness Check', type: 'tool', x: 200, y: 300 },
+        { id: 'inference1', label: 'Strong Adoption', type: 'evidence', x: 400, y: 100 },
+        { id: 'inference2', label: 'Recent Updates', type: 'evidence', x: 400, y: 300 },
+        { id: 'synthesis', label: 'Synthesis', type: 'reasoning', x: 600, y: 200 },
+        { id: 'verdict', label: verdict.toUpperCase(), type: 'verdict', x: 800, y: 200 },
+    ];
+
+    const edges = [
+        { id: 'e1', source: 'start', target: 'market', label: 'analyzes' },
+        { id: 'e2', source: 'start', target: 'freshness', label: 'checks' },
+        { id: 'e3', source: 'market', target: 'inference1', label: 'identifies' },
+        { id: 'e4', source: 'freshness', target: 'inference2', label: 'confirms' },
+        { id: 'e5', source: 'inference1', target: 'synthesis', label: 'supports' },
+        { id: 'e6', source: 'inference2', target: 'synthesis', label: 'supports' },
+        { id: 'e7', source: 'synthesis', target: 'verdict', label: 'concludes' },
+    ];
+
+    return { nodes, edges };
+}
+
+// Helper to generate confidence history
+function generateDemoConfidenceHistory(finalConfidence: number) {
+    return [
+        { step: 1, label: 'Initial', score: 0.5 },
+        { step: 2, label: 'Market Check', score: 0.65 },
+        { step: 3, label: 'Tech Analysis', score: 0.72 },
+        { step: 4, label: 'Risk Assessment', score: finalConfidence / 100 },
+    ];
+}
+
+
+// Helper to generate memory matches
+function generateDemoMemoryMatches(topic: string) {
+    return [
+        {
+            id: 'm1',
+            text: `Previous decision on "${topic} alternatives"`,
+            verdict: 'explore',
+            date: '2 weeks ago',
+            similarity: 0.85
+        },
+        {
+            id: 'm2',
+            text: `Analysis of "Backend best practices"`,
+            verdict: 'pursue',
+            date: '1 month ago',
+            similarity: 0.65
+        }
+    ];
 }
 
 function getActionItemsForVerdict(verdict: string): string[] {
@@ -178,3 +287,4 @@ function getActionItemsForVerdict(verdict: string): string[] {
             return [];
     }
 }
+

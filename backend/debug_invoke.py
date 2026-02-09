@@ -9,7 +9,15 @@ print('Running debug invoke for topic:', topic)
 
 try:
     result = app.invoke({"topic": topic, "user_profile": user})
-    print('Invoke succeeded, verdict:', result.get('verdict'))
+    print('Invoke succeeded!')
+    print('Verdict:', result.get('verdict'))
+    print('\nDecision Ledger:')
+    import json
+    ledger = result.get('ledger')
+    if ledger:
+        print(json.dumps(ledger.dict() if hasattr(ledger, 'dict') else ledger, indent=2))
+    else:
+        print('No ledger found in result')
 except Exception as e:
     print('Invoke raised exception:', e)
     traceback.print_exc()
@@ -36,7 +44,14 @@ try:
         "evidence_summary": "ecosystem patterns"
     }
     print('\n-- Attempting to format BASE_VERDICT_PROMPT with format_instructions (raw) --')
-    formatted = BASE_VERDICT_PROMPT.format_messages(signal=signal, reality_check=reality, format_instructions=fi)
+    formatted = BASE_VERDICT_PROMPT.format_messages(
+        status=signal["status"],
+        feasibility=reality["feasibility"],
+        market_signal=reality["market_signal"],
+        hype_score=reality["hype_score"],
+        memory_context="No relevant memories found.",
+        format_instructions=fi
+    )
     print('Formatted content length:', len(formatted[0].content))
     print('==== START FORMATTED PROMPT ====>')
     print(formatted[0].content)
@@ -49,7 +64,14 @@ except Exception as e:
 try:
     fi_escaped = fi.replace('{', '{{').replace('}', '}}')
     print('\n-- Attempting to format with escaped format_instructions --')
-    formatted2 = BASE_VERDICT_PROMPT.format_messages(signal=signal, reality_check=reality, format_instructions=fi_escaped)
+    formatted2 = BASE_VERDICT_PROMPT.format_messages(
+        status=signal["status"],
+        feasibility=reality["feasibility"],
+        market_signal=reality["market_signal"],
+        hype_score=reality["hype_score"],
+        memory_context="No relevant memories found.",
+        format_instructions=fi_escaped
+    )
     print('Formatted2 content length:', len(formatted2[0].content))
     print('==== START FORMATTED PROMPT 2 ====>')
     print(formatted2[0].content)

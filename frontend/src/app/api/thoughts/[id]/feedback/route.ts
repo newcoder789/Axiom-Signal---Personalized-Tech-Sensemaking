@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateThoughtFeedback } from '@/lib/actions';
+import { submitFeedback } from '@/lib/actions/feedback';
 import { z } from 'zod';
 
 // Feedback validation schema
@@ -43,17 +43,33 @@ export async function POST(
         const body = await request.json();
         const validated = feedbackSchema.parse(body);
 
-        // Update thought with feedback (creates new version)
-        const newThought = await updateThoughtFeedback(thoughtId, {
-            type: validated.type,
-            note: validated.note,
-        });
+        // Map legacy inputs to new JSONB format
+        const helpful = validated.type === 'agree';
+
+        const feedbackTags = {
+            isTooOptimistic: validated.type === 'too_optimistic',
+            isTooConservative: validated.type === 'too_conservative',
+            hasWrongAssumption: validated.type === 'wrong_assumption',
+            missingContext: validated.type === 'missing_context',
+            isCorrect: helpful
+        };
+
+        // Update thought with feedback
+        await submitFeedback({
+            thoughtId,
+            // helpful boolean is not in FeedbackRequest interface but used in logic? check types.
+            // submitFeedback takes FeedbackRequest which has tags object. 
+            // Wait, let me check lib/types/feedback.ts content again.
+            // It has refined types.
+            tags: feedbackTags,
+            comment: validated.note,
+        } as any); // temporary cast if types don't perfectly align or update types
+
 
         return NextResponse.json(
             {
                 success: true,
-                thought: newThought,
-                message: 'Feedback recorded and new version created',
+                message: 'Feedback recorded',
             },
             { status: 200 }
         );

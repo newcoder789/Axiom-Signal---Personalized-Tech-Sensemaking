@@ -32,3 +32,5 @@ docker exec -it axiom-redis redis-cli
 keys * 
 
 python -m uvicorn app:app --reload
+
+docker-compose up -d

@@ -13,63 +13,65 @@ export function JournalCard({ journal, onClick }: JournalCardProps) {
     return (
         <div
             onClick={onClick}
+            className="card-premium"
             style={{
                 width: '100%',
                 padding: '24px',
                 borderRadius: '16px',
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border-primary)',
                 cursor: 'pointer',
-                transition: 'all 0.2s ease',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 display: 'flex',
-                flexDirection: 'column'
+                flexDirection: 'column',
+                position: 'relative',
+                overflow: 'hidden'
             }}
             onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--accent-blue)';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.1)';
+                e.currentTarget.style.transform = 'translateY(-4px)';
+                e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.3)';
             }}
             onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border-primary)';
                 e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
+                e.currentTarget.style.boxShadow = 'var(--shadow-md)';
             }}
         >
-            <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
+            <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-4">
                     <div
-                        className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl"
+                        className="w-14 h-14 rounded-xl flex items-center justify-center text-3xl glass"
                         style={{
-                            background: journal.color || 'var(--accent-blue)',
-                            opacity: 0.9
+                            border: `1px solid ${journal.color || 'var(--accent-blue)'}`,
+                            boxShadow: `0 0 15px ${journal.color || 'var(--accent-blue)'}33`
                         }}
                     >
                         {journal.icon || '📔'}
                     </div>
                     <div>
-                        <h3 className="font-semibold text-lg" style={{ color: 'var(--text-primary)' }}>
+                        <h3 className="h3" style={{ fontSize: '18px', color: 'var(--text-primary)' }}>
                             {journal.title}
                         </h3>
-                        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-                            {journal.description || 'No description'}
+                        <p className="caption mt-1" style={{ fontSize: '13px' }}>
+                            {journal.description || 'Continuous tech analysis stream'}
                         </p>
                     </div>
                 </div>
+            </div>
+
+            <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="flex items-center gap-2">
+                    <div className="pulse-gold" style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent-gold)' }}></div>
+                    <span className="label" style={{ fontSize: '10px', color: 'var(--accent-gold)', letterSpacing: '0.05em' }}>
+                        MEMORY SYNC ACTIVE
+                    </span>
+                </div>
                 <div
-                    className="px-3 py-1 rounded-full text-sm font-medium"
+                    className="px-3 py-1 rounded-full text-xs font-semibold glass"
                     style={{
-                        background: 'var(--bg-tertiary)',
-                        color: 'var(--text-muted)'
+                        border: '1px solid var(--border-primary)',
+                        color: 'var(--text-secondary)'
                     }}
                 >
                     {thoughtCount} {thoughtCount === 1 ? 'thought' : 'thoughts'}
                 </div>
-            </div>
-
-            <div className="flex items-center gap-4 text-xs mt-4" style={{ color: 'var(--text-muted)' }}>
-                <span>
-                    Updated {new Date(journal.updatedAt ?? journal.createdAt ?? new Date()).toLocaleDateString()}
-                </span>
             </div>
         </div>
     );

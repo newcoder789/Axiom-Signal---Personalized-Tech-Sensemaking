@@ -19,6 +19,16 @@ from opik.integrations.langchain import OpikTracer
 from opik import opik_context
 import hashlib
 from redis.commands.search.query import Query
+from tools.orchestrator import ToolOrchestrator
+from pathlib import Path
+from langsmith.run_trees import RunTree
+
+# 🩹 PATCH: Resolve Pydantic V2 compatibility issue with Opik/LangSmith
+# Error: `RunTree` is not fully defined; you should define `Path`...
+try:
+    RunTree.model_rebuild()
+except Exception as e:
+    print(f"⚠️ Opik Patch Warning: {e}")
 
 load_dotenv()
 
@@ -112,6 +122,16 @@ class RealityCheckOutput(BaseModel):
     evidence_summary: str = Field(
         ..., description="What signals were used to assess this"
     )
+    sources: list[dict] = Field(
+        default_factory=list,
+        description="2-3 high-quality source links. Each source MUST have: title, url, snippet, domain, and date."
+    )
+    
+    # Decision Ledger Buckets (Flattened for better LLM adherence)
+    ledger_context: list[str] = Field(..., description="User-specific anchoring facts (Chips)")
+    ledger_market_signals: list[dict] = Field(..., description="Scored metrics (0-10) with labels")
+    ledger_trade_offs: dict[str, list[str]] = Field(..., description="Explicit 'gains' and 'costs' lists")
+    ledger_anchors: list[str] = Field(..., description="Frozen claims for future reassessment")
 
 
 # Verdict bucket: watchlist = "Model unsure, signals emerging, do NOT decay or upgrade yet"
@@ -146,6 +166,9 @@ class AxiomState(BaseModel):
     signal: Optional[SignalFramingOutput] = None
     reality_check: Optional[RealityCheckOutput] = None
     verdict: Optional[VerdictOutput] = None
+    sources: list[dict] = Field(default_factory=list)
+    tool_evidence: Dict[str, Any] = Field(default_factory=dict)
+    ledger: Optional[dict] = None
 
     # Memory fields
     memory_context: Optional[Dict[str, Any]] = None
@@ -171,7 +194,7 @@ class AxiomState(BaseModel):
 llm = ChatGroq(
     model="llama-3.1-8b-instant",
     api_key=os.getenv("GROQ_API_KEY"),
-    temperature=0.1,
+    temperature=0.7,
 )
 
 # Memory manager (singleton)
@@ -477,9 +500,14 @@ REALITY_CHECK_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            """You are a skeptical technical analyst.
+            """You are a skeptical technical analyst. Your goal is to provide a structured, high-stakes reality check.
 
-You evaluate feasibility and hype WITHOUT optimism or politeness.
+You evaluate feasibility and hype WITHOUT optimism or politeness. You MUST weigh every claim against the user's specific context and background.
+If the tech is legacy, say so. If the user is overqualified or underqualified, be blunt.
+
+PERSONALIZATION: Weigh 'feasibility' and 'risk_factors' heavily against the user's role and experience level.
+DYNAMIC ANALYSIS: Avoid generic advice. Use your industry knowledge to find specific technical friction points or market signals.
+{format_instructions}
 
 Topic: {topic}
 Input signal:
@@ -570,10 +598,33 @@ These are "mixed":
 If a technology is THE default choice for its category, it's "strong".
 If it's A legitimate choice but not THE default, it's "mixed".
 
+═══════════════════════════════════════════════════════════════
+DECISION LEDGER BUCKETS (AUDIT-READY EVIDENCE)
+═══════════════════════════════════════════════════════════════
+
+1. context_evidence (The Personalization Anchor):
+- List 3-4 concrete facts from the user's profile and goals.
+- This proves the decision is tied to their reality, not generic.
+
+2. market_signals (The Scored Scrip):
+- Score these 4 metrics (0-10): "Hiring Demand", "Ecosystem Maturity", "Tool Stability", "Learning Curve".
+- Format: List of {{"label": "...", "score": ...}}
+
+3. trade_offs (The Gains vs. Costs):
+- Dictionary: {{"gains": [...], "costs": [...]}}.
+- Real decisions involve loss. Be specific about what follows (Costs).
+
+4. decision_anchors (The Revisit Receipt):
+- List 2-3 "frozen claims" that trigger a future reassessment.
+- Format: "If [event/metric] [condition] -> [action]"
+- Example: "If learning takes > 3 weeks -> reassess"
+
 CRITICAL OUTPUT RULES:
 - You MUST return valid JSON only.
 - Every field in the schema is REQUIRED.
 - Lists MUST always be arrays, even if empty.
+- ledger: This is YOUR CROWN JEWEL. Populate all 4 buckets with precision.
+- sources: MUST be a list of 2-3 dictionaries with 'title', 'url', 'snippet', 'domain', and 'date'.
 - Do NOT explain instructions inside values.
 - Do NOT return natural language outside fields.
 You MUST return ALL fields in the schema.
@@ -584,6 +635,7 @@ If unsure, use:
 - hype_score = 5
 - risk_factors = []
 - known_unknowns = []
+- sources = []
 
 risk_factors:
 - MUST be a list of short, concrete risks.
@@ -593,7 +645,6 @@ known_unknowns:
 - MUST be a list.
 - Use [] if none are known.
 Return ONLY valid JSON.
-{format_instructions}
 """,
         )
     ]
@@ -609,23 +660,43 @@ def reality_check_node(state: AxiomState) -> AxiomState:
     parser = JsonOutputParser(pydantic_object=RealityCheckOutput)
     chain = REALITY_CHECK_PROMPT | llm | parser
 
+    # Call tool orchestrator for real evidence
+    orchestrator = ToolOrchestrator()
+    tool_evidence = orchestrator.execute_tools(
+        topic=state.topic, 
+        context={"user_profile": state.user_profile}
+    )
+    state.tool_evidence = tool_evidence
+    state.sources = tool_evidence.get("sources", [])
+
     fi = parser.get_format_instructions().replace("{", "{{").replace("}", "}}")
 
     # FIXED: Add error handling for LLM invocation
     try:
         result = chain.invoke(
-        {
-            "topic": state.topic or "",
-            "status": state.signal.status,
-            "signal_summary": state.signal.signal_summary if state.signal.signal_summary else f"Topic only (signal framing insufficient): {state.topic}",
-            "domain": state.signal.domain,
-            "time_horizon": state.signal.time_horizon,
-            "user_context_summary": state.signal.user_context_summary,
-            "confidence_level": state.signal.confidence_level,
-            "format_instructions": fi,
-            "memory_context": state.memory_hints or "No relevant memories found.",
-        }
-    )
+            {
+                "topic": state.topic or "",
+                "status": state.signal.status,
+                "signal_summary": state.signal.signal_summary if state.signal.signal_summary else f"Topic only (signal framing insufficient): {state.topic}",
+                "domain": state.signal.domain,
+                "time_horizon": state.signal.time_horizon,
+                "user_context_summary": state.signal.user_context_summary,
+                "confidence_level": state.signal.confidence_level,
+                "format_instructions": fi,
+                "memory_context": state.memory_hints or "No relevant memories found.",
+            }
+        )
+        print(f"DEBUG: Reality check LLM result keys: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}")
+        
+        # Check for flattened ledger fields instead of missing 'ledger' key
+        ledger_fields = ["ledger_context", "ledger_market_signals", "ledger_trade_offs", "ledger_anchors"]
+        found_fields = [f for f in ledger_fields if f in result]
+        
+        if len(found_fields) == len(ledger_fields):
+            print(f"DEBUG: All {len(ledger_fields)} ledger fields found in LLM result!")
+        else:
+            missing = set(ledger_fields) - set(found_fields)
+            print(f"DEBUG: Ledger fields MISSING from LLM result: {missing}")
     except Exception as e:
         print(f"⚠️  Error in reality_check LLM invocation: {e}")
         import traceback
@@ -647,6 +718,17 @@ def reality_check_node(state: AxiomState) -> AxiomState:
     result.setdefault("risk_factors", [])
     result.setdefault("known_unknowns", [])
     result.setdefault("evidence_summary", "Assessment based on general ecosystem patterns and industry knowledge, not direct evidence")
+    
+    # Fallback for ledger fields
+    result.setdefault("ledger_context", ["Manual evaluation triggered"])
+    result.setdefault("ledger_market_signals", [
+            {"label": "Hiring Demand", "score": 5},
+            {"label": "Ecosystem Maturity", "score": 5},
+            {"label": "Tool Stability", "score": 5},
+            {"label": "Learning Curve", "score": 5}
+    ])
+    result.setdefault("ledger_trade_offs", {"gains": ["Baseline productivity"], "costs": ["Generic solution risk"]})
+    result.setdefault("ledger_anchors", ["If evidence remains generic -> reassess"])
 
     # Ensure list types
     if isinstance(result["risk_factors"], str):
@@ -660,6 +742,15 @@ def reality_check_node(state: AxiomState) -> AxiomState:
         result["known_unknowns"] = []
     
     state.reality_check = RealityCheckOutput(**result)
+    state.sources = result.get("sources", [])
+    
+    # Reconstruct structured ledger for the UI
+    state.ledger = {
+        "context_evidence": state.reality_check.ledger_context,
+        "market_signals": state.reality_check.ledger_market_signals,
+        "trade_offs": state.reality_check.ledger_trade_offs,
+        "decision_anchors": state.reality_check.ledger_anchors,
+    }
 
     # Memory-informed adjustments
     if state.memory_hints and "similar past decisions" in state.memory_hints.lower():
@@ -695,7 +786,9 @@ BASE_VERDICT_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            """You are a Scout: curious, trend-sensitive, tolerant of uncertainty. Your job is sensemaking, not judging.
+            """You are a Scout: direct, skeptical, and efficient. Your job is to tell the user whether a technology is worth their limited time.
+
+CRITICAL: Do NOT be a cheerleader. If something is hype, say so. If something is established but decaying, say so. 
 
 Inputs:
 Status: {status}
@@ -705,48 +798,36 @@ Hype Score: {hype_score}
 Memory context: {memory_context}
 
 ═══════════════════════════════════════════════════════════════
-DECISION BUCKETS (four options: pursue | explore | watchlist | ignore)
+DECISION BUCKETS
 ═══════════════════════════════════════════════════════════════
 
-PURSUE = Worth learning deeply NOW
-- feasibility = "high" OR "medium"
-- market_signal = "strong" OR "mixed"
-- User profile aligns; technology is established (time_horizon = "medium" or "long")
+PURSUE = High ROI, low regret.
+- Technology is mature OR has overwhelming market signal.
+- Feasibility is high (aligned with user skills).
+- Action items should focus on immediate implementation.
 
-EXPLORE = Keep on radar, light research
-- feasibility = "medium" AND market_signal = "mixed"
-- OR: emerging tech (time_horizon = "short") AND market_signal = "mixed"
-- If feasibility = "low" BUT market_signal = "mixed" → EXPLORE (not ignore)
+EXPLORE = Promising but unproven or high friction.
+- Mixed signals or emerging tech.
+- High learning curve but potential long-term value.
+- Action items: Spikes, prototypes, limited scope experiments.
 
-WATCHLIST = Model unsure, signals emerging; do NOT decay or upgrade yet
-- Newer versions of established tech (e.g. Redis 7, Postgres 16) when model prior is lagging
-- time_horizon = "short" AND market_signal = "mixed" or "strong" → prefer WATCHLIST over ignore
-- Low evidence + uncertain → WATCHLIST (intellectual honesty; re-evaluate later)
-- timeline = "re-evaluate in 3 months"
+WATCHLIST = Uncertain or outdated knowledge.
+- Model cutoff issues (Release > April 2024).
+- Low evidence but high potential.
+- Action items: Re-evaluate in 3 months. Don't touch yet.
 
-IGNORE = Not worth time, clear opportunity cost
-- REQUIRES: feasibility = "low" AND market_signal = "weak" (BOTH)
-- OR: Obsolete for stated goals (COBOL for modern SaaS)
-- OR: vaporware / status = "insufficient_signal" with weak market
-- OR: hype_score > 8 AND feasibility = "low" AND market_signal = "weak"
+IGNORE = Opportunity cost > Value.
+- Vaporware, dead ecosystems, or obsolete tech.
+- Wrong tool for the user's specific goals.
+- Action item: Suggest a concrete alternative.
 
 ═══════════════════════════════════════════════════════════════
-SCOUT RULES:
-═══════════════════════════════════════════════════════════════
-
-⚠️ "mixed" market signal does NOT mean ignore!
-⚠️ When in doubt between ignore and watchlist → choose WATCHLIST (tolerate uncertainty).
-⚠️ New/recent tech (short time horizon) + mixed/strong market → WATCHLIST, not ignore.
-⚠️ IGNORE only when BOTH feasibility = "low" AND market_signal = "weak".
-
 REASONING STYLE:
-- Write like a senior engineer advising a colleague. 
-- Be conversational but precise. 
-- Explain the "why" behind the verdict clearly.
-- Mention specific trade-offs (e.g., "It's powerful but the learning curve is steep").
-- START with a direct answer.
-
-Action items must be concrete. If "ignore": state opportunity cost. If "watchlist": suggest re-evaluate in 3 months.
+═══════════════════════════════════════════════════════════════
+- BE BLUNT. No corporate fluff. 
+- Use evidence from the "Inputs" to justify every claim.
+- If the user's skills are a mismatch, highlight it as a "Skill Gap" risk.
+- Address the user directly: "You should...", "Based on your experience with..."
 
 Return ONLY valid JSON.
 {format_instructions}""",

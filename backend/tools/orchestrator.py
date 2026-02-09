@@ -23,6 +23,7 @@ except ImportError:
 from .freshness_checker import FreshnessChecker
 from .market_signal import MarketSignalTool
 from .friction_estimator import FrictionEstimator
+from .web_search import WebSearchTool
 from .logging_utils import ToolLogger
 
 
@@ -40,6 +41,7 @@ class ToolOrchestrator:
         self.freshness_checker = FreshnessChecker()
         self.market_signal = MarketSignalTool()
         self.friction_estimator = FrictionEstimator()
+        self.web_search = WebSearchTool()
         
         # Create session-specific logger
         self.session_id = session_id or datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -137,6 +139,22 @@ class ToolOrchestrator:
         if user_modifier != 0:
             print(f"  User Modifier: {user_modifier:+.0%} (based on profile)")
         print(f"  Confidence: {friction_result.confidence:.2f}")
+
+        # ═══════════════════════════════════════════════════════════
+        # TOOL 4: WEB SEARCH (EVIDENCE)
+        # ═══════════════════════════════════════════════════════════
+        print(f"\n[4/4] WEB SEARCH")
+        print(f"  Fetching realistic evidence and source links...")
+        
+        self.logger.log_tool_start("search", topic, context)
+        search_result = self.web_search.execute(topic, context)
+        search_data = search_result.structured_data
+        self.logger.log_tool_result("search", search_data, search_result.confidence)
+        
+        sources = search_data.get("sources", [])
+        print(f"  Found {len(sources)} sources")
+        for s in sources[:2]:
+            print(f"  - {s['title']} ({s['domain']})")
         
         # ═══════════════════════════════════════════════════════════
         # CALCULATE COMBINED CONFIDENCE
@@ -145,6 +163,7 @@ class ToolOrchestrator:
             freshness_result.confidence,
             market_result.confidence,
             friction_result.confidence,
+            search_result.confidence,
         ]
         combined_confidence = sum(confidences) / len(confidences)
         
@@ -153,6 +172,8 @@ class ToolOrchestrator:
             "freshness": freshness_data,
             "market": market_data,
             "friction": friction_data,
+            "search": search_data,
+            "sources": sources,
             "watchlist_triggered": watchlist_triggered,
             "combined_confidence": round(combined_confidence, 2),
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -221,6 +242,7 @@ class ToolOrchestrator:
                 "freshness": self.freshness_checker.health_check(),
                 "market": self.market_signal.health_check(),
                 "friction": self.friction_estimator.health_check(),
+                "search": self.web_search.health_check(),
             },
             "all_healthy": True,
         }

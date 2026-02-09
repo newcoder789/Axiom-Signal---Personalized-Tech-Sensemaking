@@ -6,35 +6,28 @@ import type { NewJournal, NewThought, Thought, Journal } from './schema';
 import { eq, and, desc, like, or, sql, gte, lte } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 
+import { ThoughtSchema } from './validation';
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+
 // ============================================================================
 // USER ACTIONS
 // ============================================================================
 
-function generateUserId(): string {
-    // Generate a stable user ID based on browser/session
-    // In production, this would use auth session
-    if (typeof window !== 'undefined') {
-        // Client-side: use localStorage
-        let userId = localStorage.getItem('axiom_user_id');
-        if (!userId) {
-            userId = crypto.randomUUID();
-            localStorage.setItem('axiom_user_id', userId);
-        }
-        return userId;
-    }
-
-    // Server-side: use a demo user for now
-    // TODO: Replace with actual auth (NextAuth, Clerk, etc.)
-    return '00000000-0000-0000-0000-000000000001';
-}
-
 export async function getCurrentUserId(): Promise<string> {
-    return generateUserId();
+    return ensureUser();
 }
 
 export async function ensureUser() {
-    // ⚠️ TEMPORARY: Use consistent user ID for demo until authentication is implemented
-    // This ensures all data is associated with the same user across sessions
+    const session = await getServerSession(authOptions);
+
+    // If authenticated, use that user
+    if (session?.user?.id) {
+        return session.user.id;
+    }
+
+    // ⚠️ Fallback to Demo User if not logged in
+    // This allows "Guest Mode" for the hackathon
     // Must be a valid UUID format for PostgreSQL
     let userId = '00000000-0000-0000-0000-000000000001';
 
@@ -47,8 +40,9 @@ export async function ensureUser() {
     if (existingUser.length === 0) {
         await db.insert(users).values({
             id: userId,
-            email: `user_${userId.slice(0, 8)}@axiom.local`,
-            name: 'Developer',
+            email: `guest@axiom.local`,
+            name: 'Guest User',
+            emailVerified: new Date(),
         });
     }
 
@@ -67,7 +61,18 @@ export async function createJournal(data: {
 }) {
     const userId = await ensureUser();
 
-    const slug = data.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const baseSlug = data.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    let slug = baseSlug;
+
+    // Ensure slug is unique
+    const existingJournal = await db.query.journals.findFirst({
+        where: eq(journals.slug, slug)
+    });
+
+    if (existingJournal) {
+        // Append random suffix if slug exists
+        slug = `${baseSlug}-${crypto.randomUUID().slice(0, 6)}`;
+    }
 
     const [journal] = await db.insert(journals).values({
         userId,
@@ -101,17 +106,26 @@ export async function getJournal(id: string): Promise<Journal | null> {
     return result[0] || null;
 }
 
-export async function getJournals(): Promise<Journal[]> {
+export async function getJournals() {
     const userId = await ensureUser();
 
-    return await db.select()
+    return await db.select({
+        id: journals.id,
+        title: journals.title,
+        icon: journals.icon,
+        description: journals.description,
+        color: journals.color,
+        thoughtCount: sql<number>`count(${thoughts.id})`.mapWith(Number)
+    })
         .from(journals)
+        .leftJoin(thoughts, and(eq(journals.id, thoughts.journalId), eq(thoughts.isCurrent, true)))
         .where(
             and(
                 eq(journals.userId, userId),
                 eq(journals.isArchived, false)
             )
         )
+        .groupBy(journals.id, journals.title, journals.icon, journals.description, journals.color)
         .orderBy(desc(journals.updatedAt));
 }
 
@@ -135,8 +149,10 @@ export async function getJournalBySlug(slug: string) {
 // THOUGHT ACTIONS
 // ============================================================================
 
+
+
 export async function createThought(data: {
-    journalId: string;
+    journalId?: string;
     title: string;
     content: string;
     context?: Record<string, any>;
@@ -149,8 +165,38 @@ export async function createThought(data: {
     toolEvidence?: Record<string, any>;
     sources?: Array<any>;
 }) {
+    // Validate inputs
+    try {
+        ThoughtSchema.parse({
+            title: data.title,
+            content: data.content,
+            context: data.context
+        });
+    } catch (error) {
+        console.error("Validation error:", error);
+    }
+
+    let journalId = data.journalId;
+
+    if (!journalId) {
+        const userId = await ensureUser();
+        // Get a default journal or the first one
+        const userJournals = await db.select().from(journals).where(eq(journals.userId, userId)).limit(1);
+        journalId = userJournals[0]?.id;
+
+        // If no journal, create a generic one
+        if (!journalId) {
+            const [newJournal] = await db.insert(journals).values({
+                userId,
+                title: "General Thoughts",
+                icon: "📓",
+            }).returning();
+            journalId = newJournal.id;
+        }
+    }
+
     const [thought] = await db.insert(thoughts).values({
-        journalId: data.journalId,
+        journalId,
         title: data.title,
         content: data.content,
         context: data.context || {},
@@ -169,10 +215,69 @@ export async function createThought(data: {
     // ✅ Only revalidate when running inside Next
     if (process.env.NEXT_RUNTIME === 'nodejs') {
         revalidatePath('/journal');
-        revalidatePath(`/journal/${data.journalId}`);
+        revalidatePath(`/journal/${journalId}`);
     }
     return thought;
 }
+
+export async function persistVerdict(verdictData: any) {
+    // Determine title from topic or content
+    const title = verdictData.topic || "New Analysis";
+
+    // Create the thought
+    return await createThought({
+        title,
+        content: verdictData.additional_notes || verdictData.content || title, // Fallback content
+        verdict: verdictData.verdict,
+        confidence: verdictData.confidence,
+        reasoning: verdictData.reasoning,
+        timeline: verdictData.timeline,
+        actionItems: Array.isArray(verdictData.actionItems)
+            ? verdictData.actionItems.map((item: any) =>
+                typeof item === 'string' ? { text: item, completed: false } : { text: item.text, completed: false }
+            )
+            : [],
+        toolEvidence: verdictData.toolEvidence,
+        sources: verdictData.sources,
+        context: {
+            profile: verdictData.user_profile,
+            riskTolerance: verdictData.risk_tolerance,
+        }
+    });
+}
+
+// ... (other functions remain)
+
+export async function getThoughtEvolution(id: string): Promise<Thought[]> {
+    const currentThought = await getThoughtById(id);
+
+    if (!currentThought) return [];
+
+    // Get all versions by following parent chain
+    const versions: Thought[] = [];
+    let current: Thought | null = currentThought;
+
+    // Prevent infinite loops with max depth
+    let depth = 0;
+    const MAX_DEPTH = 50;
+
+    while (current && depth < MAX_DEPTH) {
+        versions.unshift(current); // Add to beginning (oldest first)
+
+        if (!current.parentId) break;
+
+        const [parent] = await db.select()
+            .from(thoughts)
+            .where(eq(thoughts.id, current.parentId))
+            .limit(1);
+
+        current = parent || null;
+        depth++;
+    }
+
+    return versions;
+}
+
 
 export async function getThoughtsByJournal(journalId: string): Promise<Thought[]> {
     return await db.select()
@@ -216,39 +321,7 @@ export async function updateThought(id: string, data: {
     return updated;
 }
 
-export async function updateThoughtFeedback(id: string, feedback: {
-    type: 'agree' | 'too_optimistic' | 'too_conservative' | 'wrong_assumption' | 'missing_context';
-    note?: string;
-}) {
-    // Get current thought
-    const currentThought = await getThoughtById(id);
 
-    if (!currentThought) {
-        throw new Error('Thought not found');
-    }
-
-    // Mark old as not current
-    await db.update(thoughts)
-        .set({ isCurrent: false })
-        .where(eq(thoughts.id, id));
-
-    // Create new version with feedback
-    const [newThought] = await db.insert(thoughts).values({
-        ...currentThought,
-        id: undefined as any, // Let DB generate new ID
-        parentId: currentThought.id,
-        feedbackType: feedback.type,
-        feedbackNote: feedback.note,
-        version: (currentThought.version || 1) + 1,
-        isCurrent: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-    }).returning();
-
-    revalidatePath('/journal');
-    revalidatePath('/history');
-    return newThought;
-}
 
 // ============================================================================
 // SEARCH & FILTER ACTIONS
@@ -312,24 +385,9 @@ export async function searchThoughts(params: {
 // ANALYTICS & DASHBOARD ACTIONS
 // ============================================================================
 
-export async function getRecentThoughts(limit: number = 10): Promise<Thought[]> {
-    const userId = await ensureUser();
 
-    return await db.select()
-        .from(thoughts)
-        .innerJoin(journals, eq(thoughts.journalId, journals.id))
-        .where(
-            and(
-                eq(journals.userId, userId),
-                eq(thoughts.isCurrent, true)
-            )
-        )
-        .orderBy(desc(thoughts.createdAt))
-        .limit(limit)
-        .then(results => results.map(r => r.thoughts));
-}
 
-export async function getActiveDecisions() {
+export async function getActiveDecisions(limit: number = 10) {
     const userId = await ensureUser();
 
     return await db.select()
@@ -346,8 +404,8 @@ export async function getActiveDecisions() {
                 )!
             )
         )
-        .orderBy(desc(thoughts.createdAt))
-        .limit(10)
+        .orderBy(desc(thoughts.updatedAt)) // Should be updatedAt for activity? Or createdAt.
+        .limit(limit)
         .then(results => results.map(r => r.thoughts));
 }
 
@@ -361,6 +419,100 @@ export async function getThoughtHistory(thoughtId: string) {
             )!
         )
         .orderBy(desc(thoughts.version));
+}
+
+export async function getFullHistory() {
+    const userId = await ensureUser();
+
+    // Join with journals to ensure we only get this user's data
+    const results = await db.select({
+        thought: thoughts,
+        journalTitle: journals.title
+    })
+        .from(thoughts)
+        .innerJoin(journals, eq(thoughts.journalId, journals.id))
+        .where(eq(journals.userId, userId))
+        .orderBy(desc(thoughts.createdAt));
+
+    return results;
+}
+
+export async function getThought(id: string) {
+    const userId = await ensureUser(); // ensure access
+    const result = await db.query.thoughts.findFirst({
+        where: eq(thoughts.id, id),
+    });
+    // Optional: check ownership via journal join if strict (but ensureUser checks logged in)
+    // For now, assuming if you have ID you can read it (or add check)
+    return result;
+}
+
+export async function getRecentThoughts(limit: number = 5) {
+    const userId = await ensureUser();
+    return await db.select({
+        id: thoughts.id,
+        title: thoughts.title,
+        verdict: thoughts.verdict,
+        createdAt: thoughts.createdAt,
+        content: thoughts.content
+    })
+        .from(thoughts)
+        .innerJoin(journals, eq(thoughts.journalId, journals.id))
+        .where(
+            and(
+                eq(journals.userId, userId),
+                eq(thoughts.isCurrent, true)
+            )
+        )
+        .orderBy(desc(thoughts.createdAt))
+        .limit(limit);
+}
+
+export async function searchRelatedThoughts(query: string) {
+    const userId = await ensureUser();
+    return await db.select({
+        id: thoughts.id,
+        title: thoughts.title,
+        verdict: thoughts.verdict
+    })
+        .from(thoughts)
+        .innerJoin(journals, eq(thoughts.journalId, journals.id))
+        .where(
+            and(
+                eq(journals.userId, userId),
+                like(thoughts.content, `%${query}%`)
+            )
+        )
+        .orderBy(desc(thoughts.createdAt))
+        .limit(3);
+}
+
+export async function createRawThought(content: string) {
+    const userId = await ensureUser();
+
+    // Get a default journal or the first one
+    const userJournals = await db.select().from(journals).where(eq(journals.userId, userId)).limit(1);
+    let journalId = userJournals[0]?.id;
+
+    // If no journal, create a generic one
+    if (!journalId) {
+        const [newJournal] = await db.insert(journals).values({
+            userId,
+            title: "General Thoughts",
+            icon: "📓",
+        }).returning();
+        journalId = newJournal.id;
+    }
+
+    const [thought] = await db.insert(thoughts).values({
+        journalId,
+        title: content.slice(0, 50) + (content.length > 50 ? "..." : ""), // Simple title extraction
+        content,
+        isCurrent: true,
+        verdict: null, // Raw thought
+    }).returning();
+
+    return thought;
 }
 
 // ============================================================================
@@ -394,40 +546,23 @@ export async function getDashboardStats() {
     };
 }
 
-// ============================================================================
-// FOCUS SESSION ACTIONS
-// ============================================================================
 
-export async function startFocusSession(data: {
-    thoughtId: string;
-    actionItem: string;
-    durationMinutes?: number;
+
+export async function updateThoughtFeedback(thoughtId: string, feedback: {
+    helpful: boolean;
+    tags: string[];
+    comments?: string;
 }) {
-    const userId = await ensureUser();
-
-    const [session] = await db.insert(focusSessions).values({
-        thoughtId: data.thoughtId,
-        userId,
-        title: 'Focus Session',
-        actionItem: data.actionItem,
-        durationMinutes: data.durationMinutes || 25,
-        startedAt: new Date(),
-    }).returning();
-
-    revalidatePath('/focus');
-    return session;
-}
-
-export async function completeFocusSession(id: string, outcome: string) {
-    const [session] = await db.update(focusSessions)
+    await db.update(thoughts)
         .set({
-            completed: true,
-            outcome,
-            endedAt: new Date(),
+            feedback: {
+                ...feedback,
+                timestamp: new Date().toISOString()
+            }
         })
-        .where(eq(focusSessions.id, id))
-        .returning();
+        .where(eq(thoughts.id, thoughtId));
 
-    revalidatePath('/focus');
-    return session;
+    revalidatePath('/decide');
+    revalidatePath('/journal');
+    return { success: true };
 }

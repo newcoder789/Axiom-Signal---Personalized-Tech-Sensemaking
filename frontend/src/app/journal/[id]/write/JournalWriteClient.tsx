@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { JournalEditor } from '@/app/components/journal/JournalEditor';
 import { AssistantPanel } from '@/app/components/journal/AssistantPanel';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { Journal, Thought } from '@/lib/schema';
 import { createThought, getThoughtsByJournal } from '@/lib/actions';
 import { successToast, errorToast } from '@/lib/toast';
@@ -15,8 +15,27 @@ interface Props {
 
 export default function JournalWriteClient({ journal, initialThoughts }: Props) {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [thoughts, setThoughts] = useState<Thought[]>(initialThoughts);
-    const [selectedThought, setSelectedThought] = useState<Thought | null>(null);
+
+    // Initialize selectedThought based on URL param if present
+    const [selectedThought, setSelectedThought] = useState<Thought | null>(() => {
+        const thoughtId = searchParams.get('thought');
+        if (thoughtId) {
+            return initialThoughts.find(t => t.id === thoughtId) || null;
+        }
+        return null;
+    });
+
+    // Sync selectedThought with URL param
+    useEffect(() => {
+        const thoughtId = searchParams.get('thought');
+        if (thoughtId) {
+            const thought = thoughts.find(t => t.id === thoughtId);
+            if (thought) setSelectedThought(thought);
+        }
+    }, [searchParams, thoughts]);
+
     const [verdictData, setVerdictData] = useState<any>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterVerdict, setFilterVerdict] = useState<string>('all');

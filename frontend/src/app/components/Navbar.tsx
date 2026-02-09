@@ -4,15 +4,18 @@ import { usePathname } from "next/navigation";
 
 const pageInfo: Record<string, { title: string; description: string }> = {
     "/": { title: "Dashboard", description: "Overview" },
-    "/explore": { title: "Explore", description: "Investigate ideas" },
+    "/explore": { title: "Think / Explore", description: "Capture and explore thoughts" },
     "/decide": { title: "Decide", description: "Get verdicts" },
     "/journal": { title: "Journal", description: "Thinking log" },
     "/focus": { title: "Focus", description: "Execution mode" },
     "/history": { title: "History", description: "Decision evolution" },
 };
 
+import { useSession, signIn, signOut } from "next-auth/react";
+
 export default function Navbar() {
     const pathname = usePathname();
+    const { data: session, status } = useSession();
     const current = pageInfo[pathname] || { title: "Axiom", description: "" };
 
     return (
@@ -44,10 +47,28 @@ export default function Navbar() {
                     <span className="navbar-notification-dot"></span>
                 </button>
 
-                {/* User */}
-                <button className="navbar-user">
-                    <div className="navbar-user-avatar">A</div>
-                </button>
+                {/* User Auth */}
+                {status === 'loading' ? (
+                    <div className="w-8 h-8 rounded-full bg-gray-700 animate-pulse" />
+                ) : session ? (
+                    <button onClick={() => signOut()} className="navbar-user relative group">
+                        {session.user?.image ? (
+                            <img src={session.user.image} alt="User" className="w-8 h-8 rounded-full" />
+                        ) : (
+                            <div className="navbar-user-avatar">{session.user?.name?.[0] || 'U'}</div>
+                        )}
+                        <span className="absolute right-0 top-full mt-2 w-32 p-2 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                            Sign Out
+                        </span>
+                    </button>
+                ) : (
+                    <button
+                        onClick={() => signIn()}
+                        className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                        Sign In
+                    </button>
+                )}
             </div>
         </nav>
     );

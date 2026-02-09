@@ -3,6 +3,9 @@ import JournalWriteClient from './JournalWriteClient';
 import { getJournal, getThoughtsByJournal } from '@/lib/actions';
 import { notFound } from 'next/navigation';
 
+import { Suspense } from 'react';
+import { PageLoader } from '@/app/components/Loading';
+
 export default async function JournalWritePage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
     console.log(id)
@@ -14,5 +17,9 @@ export default async function JournalWritePage({ params }: { params: Promise<{ i
 
     const thoughts = await getThoughtsByJournal(id);
 
-    return <JournalWriteClient journal={journal} initialThoughts={thoughts} />;
+    return (
+        <Suspense fallback={<PageLoader message="Loading editor..." />}>
+            <JournalWriteClient journal={journal} initialThoughts={thoughts} />
+        </Suspense>
+    );
 }

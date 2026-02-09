@@ -1,404 +1,216 @@
-"use client";
-
-import { useState } from "react";
 import Link from "next/link";
+import { getActiveDecisions, getDashboardStats, getJournals } from "@/lib/actions";
+import { QuickCapture } from "./components/dashboard/QuickCapture";
+import { getActiveFocusSession } from "@/lib/actions/focus";
+import { InsightsSection } from "./components/dashboard/InsightsSection";
 
-// Types
-type VerdictType = "pursue" | "explore" | "watchlist" | "ignore";
+// Simple date formatter
+function formatTimeAgo(date: Date | string | null) {
+  if (!date) return '';
+  const d = new Date(date);
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - d.getTime()) / 1000);
 
-type ActiveDecision = {
-  id: string;
-  topic: string;
-  verdict: VerdictType;
-  confidence: number;
-  timeline?: string;
-  decidedAt: string;
-};
+  if (diffInSeconds < 60) return 'just now';
+  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+  return `${Math.floor(diffInSeconds / 86400)}d ago`;
+}
 
-type WatchlistAlert = {
-  topic: string;
-  change: string;
-  severity: "high" | "medium" | "low";
-};
+export const dynamic = 'force-dynamic';
 
-type Stream = {
-  id: string;
-  name: string;
-  icon: string;
-  count: number;
-};
-
-const activeDecisions: ActiveDecision[] = [
-  { id: "1", topic: "PostgreSQL 17 adoption", verdict: "watchlist", confidence: 62, timeline: "re-evaluate in 3 months", decidedAt: "2 days ago" },
-  { id: "2", topic: "Redis vs Kafka", verdict: "pursue", confidence: 88, timeline: "now", decidedAt: "1 week ago" },
-  { id: "3", topic: "Vector DB choice", verdict: "explore", confidence: 65, decidedAt: "3 days ago" },
-];
-
-const watchlistAlerts: WatchlistAlert[] = [
-  { topic: "PostgreSQL 17", change: "New adoption signals detected", severity: "medium" },
-  { topic: "LLM agents", change: "Hype decreasing, tooling stabilizing", severity: "low" },
-];
-
-const streams: Stream[] = [
-  { id: "1", name: "My Startup", icon: "🚀", count: 12 },
-  { id: "2", name: "Career Growth", icon: "📈", count: 8 },
-  { id: "3", name: "AI Infra", icon: "🧠", count: 15 },
-  { id: "4", name: "Learning ML", icon: "🎓", count: 5 },
-];
-
-const recentInsights = [
-  "You tend to pursue low-friction tools faster than high-upside ones",
-  "3 topics you ignored later gained traction",
-  "Your confidence increases when market signals align with hiring data"
-];
-
-export default function DashboardPage() {
-  const [selectedStream, setSelectedStream] = useState<string | null>(null);
+export default async function DashboardPage() {
+  const [stats, decisions, journals, activeSession] = await Promise.all([
+    getDashboardStats(),
+    getActiveDecisions(),
+    getJournals(),
+    getActiveFocusSession()
+  ]);
 
   return (
     <div style={{ display: "flex", height: "calc(100vh - 56px)", overflow: "hidden" }}>
 
-      {/* LEFT: FOCUS & STREAMS (280px) */}
+      {/* LEFT: STREAMS (240px) */}
       <div style={{
-        width: "280px",
-        minWidth: "280px",
+        width: "240px",
+        minWidth: "240px",
         borderRight: "1px solid var(--border-primary)",
         background: "var(--bg-secondary)",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden"
       }}>
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px" }}>
 
-          {/* Streams */}
-          <div style={{ marginBottom: "24px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-              <h3 className="label">Streams</h3>
-              <button className="btn btn-ghost" style={{ padding: "4px 8px", fontSize: "12px" }}>+</button>
+          {/* Streams (Journals) */}
+          <div style={{ marginBottom: "32px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <h3 className="label" style={{ color: "var(--text-secondary)" }}>Journals</h3>
+              <Link href="/journal" className="btn btn-ghost" style={{ padding: "4px 8px", fontSize: "12px" }}>+</Link>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              {streams.map(stream => (
-                <button
-                  key={stream.id}
-                  onClick={() => setSelectedStream(stream.id === selectedStream ? null : stream.id)}
-                  className={`btn ${selectedStream === stream.id ? "btn-secondary" : "btn-ghost"}`}
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              {journals.map(journal => (
+                <Link
+                  key={journal.id}
+                  href={`/journal/${journal.id}`}
+                  className="nav-link"
                   style={{
                     justifyContent: "space-between",
-                    fontSize: "13px",
                     padding: "10px 12px"
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span>{stream.icon}</span>
-                    <span>{stream.name}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <span style={{ fontSize: "16px" }}>{journal.icon}</span>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{journal.title}</span>
                   </div>
-                  <span className="caption">{stream.count}</span>
-                </button>
+                </Link>
               ))}
+              {journals.length === 0 && (
+                <div className="caption p-2 italic text-center">No journals yet</div>
+              )}
             </div>
           </div>
 
-          {/* Journal Shortcuts */}
-          <div>
-            <h3 className="label mb-3">Quick Actions</h3>
+          {/* Quick Actions */}
+          <div style={{ marginTop: "auto" }}>
+            <h3 className="label mb-4" style={{ color: "var(--text-secondary)" }}>Quick Actions</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              <Link href="/journal" className="btn btn-secondary" style={{ width: "100%", justifyContent: "flex-start" }}>
+              <Link href="/journal" className="btn btn-secondary" style={{ width: "100%", justifyContent: "flex-start", position: "relative" }}>
                 ✍️ Continue Journal
               </Link>
-              <Link href="/decide" className="btn btn-ghost" style={{ width: "100%", justifyContent: "flex-start" }}>
+              <Link href="/decide" className="btn btn-secondary" style={{ width: "100%", justifyContent: "flex-start" }}>
                 ⚖️ Make Decision
-              </Link>
-              <Link href="/explore" className="btn btn-ghost" style={{ width: "100%", justifyContent: "flex-start" }}>
-                🔍 Explore Topics
               </Link>
             </div>
           </div>
         </div>
       </div>
 
-      {/* CENTER: NOW PANEL (Flex, max 900px) */}
-      <div style={{ flex: 1, overflowY: "auto", display: "flex", justifyContent: "center", background: "var(--bg-primary)" }}>
-        <div style={{ width: "100%", maxWidth: "900px", padding: "32px 48px" }}>
+      {/* CENTER: DASHBOARD (Flex) */}
+      <div style={{ flex: 1, overflowY: "auto", background: "var(--bg-primary)" }}>
+        <div style={{ maxWidth: "1000px", margin: "0 auto", padding: "40px" }}>
 
           {/* Header */}
-          <div style={{ marginBottom: "32px" }}>
-            <h1 className="h1 mb-2">Dashboard</h1>
-            <p className="body" style={{ color: "var(--text-secondary)" }}>
-              Your thinking state, direction, and open loops.
+          <div style={{ marginBottom: "40px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
+              <div style={{ width: "12px", height: "12px", background: "var(--accent-gold)", borderRadius: "3px", boxShadow: "0 0 10px var(--accent-gold)" }}></div>
+              <h1 className="h1" style={{ fontSize: "28px" }}>Dashboard</h1>
+            </div>
+            <p className="body-secondary">
+              Managing your cognitive bandwidth and tech roadmap.
             </p>
           </div>
 
-          {/* 1. Current Focus */}
-          <div className="card mb-6" style={{
-            padding: "24px",
-            borderLeft: "4px solid var(--accent-blue)"
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "16px" }}>
-              <div>
-                <div className="label mb-2">🎯 Current Focus</div>
-                <h2 className="h2 mb-2">Building AI-powered journaling product</h2>
-                <div style={{ display: "flex", gap: "16px", marginTop: "12px" }}>
-                  <div>
-                    <div className="caption">Stage</div>
-                    <div className="body">Early exploration</div>
-                  </div>
-                  <div>
-                    <div className="caption">Last activity</div>
-                    <div className="body">2 hours ago</div>
-                  </div>
-                  <div>
-                    <div className="caption">Confidence trend</div>
-                    <div className="body" style={{ color: "var(--accent-green)" }}>↑ improving</div>
-                  </div>
-                </div>
-              </div>
-              <Link href="/focus" className="btn btn-primary">
-                Continue →
-              </Link>
-            </div>
+          <QuickCapture />
 
-            {/* Mini Progress */}
-            <div style={{
-              marginTop: "16px",
-              paddingTop: "16px",
-              borderTop: "1px solid var(--border-primary)"
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                <span className="caption">Overall progress</span>
-                <span className="caption">68%</span>
-              </div>
-              <div style={{
-                height: "6px",
-                background: "var(--bg-elevated)",
-                borderRadius: "3px",
-                overflow: "hidden"
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "24px" }}>
+            {/* Main Column */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+              {/* 1. Current Focus */}
+              <div className={`card ${activeSession ? 'card-premium' : ''}`} style={{
+                padding: "24px",
+                borderLeft: activeSession ? "4px solid var(--accent-green)" : "1px solid var(--border-primary)"
               }}>
-                <div style={{
-                  height: "100%",
-                  width: "68%",
-                  background: "var(--accent-blue)"
-                }} />
-              </div>
-            </div>
-          </div>
-
-          {/* 2. Active Decisions */}
-          <div className="card mb-6" style={{ padding: "24px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-              <div className="label">🧠 Active Decisions</div>
-              <Link href="/history" className="btn btn-ghost btn-sm">
-                View All →
-              </Link>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {activeDecisions.map(decision => (
-                <div
-                  key={decision.id}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "14px 16px",
-                    background: "var(--bg-secondary)",
-                    borderRadius: "8px",
-                    border: "1px solid var(--border-primary)"
-                  }}
-                >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
-                      <span className="body font-medium">{decision.topic}</span>
-                      <span className={`verdict-badge verdict-${decision.verdict}`} style={{ fontSize: "10px", padding: "2px 8px" }}>
-                        {decision.verdict}
-                      </span>
+                    <div className="label mb-3" style={{ color: activeSession ? "var(--accent-green)" : "var(--text-tertiary)" }}>
+                      🎯 {activeSession ? "Active Focus" : "Operational State"}
                     </div>
-                    <div style={{ display: "flex", gap: "16px" }}>
-                      <span className="caption">Confidence: {decision.confidence}%</span>
-                      {decision.timeline && <span className="caption">{decision.timeline}</span>}
-                      <span className="caption">{decision.decidedAt}</span>
-                    </div>
+                    {activeSession ? (
+                      <>
+                        <h2 className="h2 mb-3" style={{ fontSize: "20px" }}>{activeSession.title}</h2>
+                        <div style={{ display: "flex", gap: "24px", marginTop: "16px" }}>
+                          <div>
+                            <div className="caption">Session</div>
+                            <div className="body" style={{ color: "var(--accent-green)", fontWeight: 600 }}>In Deep Work</div>
+                          </div>
+                          <div>
+                            <div className="caption">Target</div>
+                            <div className="body">{activeSession.targetDurationMinutes} min remaining</div>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <h2 className="h2 mb-2">Systems Ready</h2>
+                        <p className="caption">
+                          Select a decision to initiate a focus session and detect drift.
+                        </p>
+                      </>
+                    )}
                   </div>
-                  <button className="btn btn-ghost btn-sm">
-                    Re-open
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 3. Recent Insights */}
-          <div className="card" style={{ padding: "24px", background: "var(--bg-secondary)" }}>
-            <div className="label mb-4">💡 Recent Insights</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              {recentInsights.map((insight, i) => (
-                <div key={i} style={{
-                  display: "flex",
-                  gap: "12px",
-                  padding: "14px",
-                  background: "var(--bg-primary)",
-                  borderRadius: "8px",
-                  borderLeft: "3px solid var(--accent-yellow)"
-                }}>
-                  <span style={{
-                    fontSize: "20px",
-                    flexShrink: 0,
-                    opacity: 0.6
-                  }}>💡</span>
-                  <p className="body" style={{ lineHeight: 1.6 }}>
-                    {insight}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            <div style={{
-              marginTop: "16px",
-              paddingTop: "16px",
-              borderTop: "1px solid var(--border-primary)",
-              textAlign: "center"
-            }}>
-              <p className="caption" style={{ fontStyle: "italic" }}>
-                This is meta-reasoning about your thinking patterns — ChatGPT cannot do this.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* RIGHT: SIGNALS & ALERTS (360px) */}
-      <div style={{
-        width: "360px",
-        minWidth: "360px",
-        borderLeft: "1px solid var(--border-primary)",
-        background: "var(--bg-secondary)",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden"
-      }}>
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
-
-          {/* Watchlist Alerts */}
-          <div style={{ marginBottom: "24px" }}>
-            <div className="label mb-3">⚠️ Watchlist Updates</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              {watchlistAlerts.map((alert, i) => (
-                <div
-                  key={i}
-                  className="card card-sm card-hover"
-                  style={{
-                    cursor: "pointer",
-                    borderLeft: alert.severity === "high" ? "3px solid var(--accent-red)" :
-                      alert.severity === "medium" ? "3px solid var(--accent-yellow)" : "3px solid var(--accent-blue)"
-                  }}
-                >
-                  <div className="font-medium mb-1" style={{ fontSize: "13px" }}>{alert.topic}</div>
-                  <div className="caption">{alert.change}</div>
-                </div>
-              ))}
-            </div>
-
-            <button className="btn btn-ghost btn-sm mt-3" style={{ width: "100%" }}>
-              View All Watchlist Items →
-            </button>
-          </div>
-
-          {/* Thinking Health */}
-          <div className="card" style={{ padding: "16px" }}>
-            <div className="label mb-3">📊 Thinking Health</div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <span className="caption">Overconfidence risk</span>
-                  <span className="caption font-medium" style={{ color: "var(--accent-yellow)" }}>Medium</span>
-                </div>
-                <div style={{
-                  height: "4px",
-                  background: "var(--bg-elevated)",
-                  borderRadius: "2px",
-                  overflow: "hidden"
-                }}>
-                  <div style={{
-                    height: "100%",
-                    width: "50%",
-                    background: "var(--accent-yellow)"
-                  }} />
+                  <Link
+                    href={activeSession ? `/focus?thought=${activeSession.thoughtId}` : "/focus"}
+                    className={activeSession ? "btn btn-primary" : "btn btn-secondary"}
+                    style={activeSession ? { background: "var(--accent-green)", color: "#000", fontWeight: 600 } : {}}
+                  >
+                    {activeSession ? "Resume Session →" : "Start Session →"}
+                  </Link>
                 </div>
               </div>
 
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <span className="caption">Exploration diversity</span>
-                  <span className="caption font-medium" style={{ color: "var(--accent-red)" }}>Low</span>
+              {/* 2. Active Decisions */}
+              <div className="card" style={{ padding: "24px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                  <div className="label">🧠 Strategic Decisions</div>
+                  <Link href="/history" className="btn btn-ghost btn-sm">
+                    Full Ledger →
+                  </Link>
                 </div>
-                <div style={{
-                  height: "4px",
-                  background: "var(--bg-elevated)",
-                  borderRadius: "2px",
-                  overflow: "hidden"
-                }}>
-                  <div style={{
-                    height: "100%",
-                    width: "25%",
-                    background: "var(--accent-red)"
-                  }} />
-                </div>
-              </div>
 
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <span className="caption">Recency bias</span>
-                  <span className="caption font-medium" style={{ color: "var(--accent-yellow)" }}>Detected</span>
-                </div>
-                <div style={{
-                  height: "4px",
-                  background: "var(--bg-elevated)",
-                  borderRadius: "2px",
-                  overflow: "hidden"
-                }}>
-                  <div style={{
-                    height: "100%",
-                    width: "60%",
-                    background: "var(--accent-yellow)"
-                  }} />
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  {decisions.length === 0 && (
+                    <div className="caption italic p-4 text-center glass rounded-lg">No active decisions. Start one in "Make Decision".</div>
+                  )}
+                  {decisions.map(decision => (
+                    <div
+                      key={decision.id}
+                      className={`glass ${decision.verdict === 'pursue' ? 'card-gold' : ''}`}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "14px 16px",
+                        borderRadius: "10px",
+                        border: decision.verdict === 'pursue' ? "1px solid var(--accent-gold-muted)" : "1px solid rgba(255,255,255,0.05)"
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
+                          <span className="body" style={{ fontWeight: 600 }}>{decision.title}</span>
+                          <span className={`verdict-badge verdict-${decision.verdict || 'explore'}`}>
+                            {decision.verdict || 'pending'}
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", gap: "16px" }}>
+                          <span className="caption" style={{ color: "var(--text-tertiary)" }}>Confidence: {decision.confidence ? parseFloat(decision.confidence.toString()).toFixed(0) : 0}%</span>
+                          <span className="caption" style={{ color: "var(--text-tertiary)" }}>{formatTimeAgo(decision.updatedAt || decision.createdAt)}</span>
+                        </div>
+                      </div>
+                      <Link href={`/journal/${decision.journalId}/write?thought=${decision.id}`} className="btn btn-ghost btn-sm" style={{ color: "var(--accent-gold)" }}>
+                        Open
+                      </Link>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
 
-            <div style={{
-              marginTop: "16px",
-              padding: "10px",
-              background: "var(--bg-tertiary)",
-              borderRadius: "6px"
-            }}>
-              <p className="caption" style={{ fontSize: "11px", lineHeight: 1.5 }}>
-                <strong>Axiom-special:</strong> ChatGPT will never tell you you're biased over time.
-              </p>
-            </div>
-          </div>
+            {/* Right Column: Meta-Insights */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+              <InsightsSection decisions={decisions} />
 
-          {/* Stats Summary */}
-          <div style={{
-            marginTop: "24px",
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "12px"
-          }}>
-            <div className="card card-sm text-center">
-              <div style={{ fontSize: "24px", fontWeight: 700, color: "var(--accent-green)" }}>23</div>
-              <div className="caption mt-1">Decisions</div>
-            </div>
-            <div className="card card-sm text-center">
-              <div style={{ fontSize: "24px", fontWeight: 700, color: "var(--accent-blue)" }}>8</div>
-              <div className="caption mt-1">Patterns</div>
-            </div>
-            <div className="card card-sm text-center">
-              <div style={{ fontSize: "24px", fontWeight: 700, color: "var(--accent-yellow)" }}>15</div>
-              <div className="caption mt-1">Assumptions</div>
-            </div>
-            <div className="card card-sm text-center">
-              <div style={{ fontSize: "24px", fontWeight: 700, color: "var(--text-primary)" }}>7</div>
-              <div className="caption mt-1">Day streak</div>
+              {/* Stats Mini Grid */}
+              <div className="grid-2">
+                <div className="card glass text-center" style={{ padding: "16px" }}>
+                  <div style={{ fontSize: "20px", fontWeight: 700, color: "var(--accent-gold)" }}>{stats.totalDecisions}</div>
+                  <div className="caption">Analyses</div>
+                </div>
+                <div className="card glass text-center" style={{ padding: "16px" }}>
+                  <div style={{ fontSize: "20px", fontWeight: 700, color: "var(--accent-green)" }}>{stats.verdictCounts['pursue'] || 0}</div>
+                  <div className="caption">Pursuits</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

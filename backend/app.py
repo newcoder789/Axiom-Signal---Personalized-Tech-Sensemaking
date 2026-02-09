@@ -56,7 +56,6 @@ def get_axiom():
             print("✅ Axiom with Power initialized (Tools + Memory)")
         except Exception as e:
             print(f"⚠️  Axiom initialized without memory: {e}")
-    axiom_instance = AxiomWithPower(redis_url="", debug=True)
     return axiom_instance
 
 # ============================================================================
@@ -173,8 +172,9 @@ async def get_verdict(request: VerdictRequest):
                 "riskFactors": result.get("reality_check").risk_factors if result.get("reality_check") else [],
                 "evidenceSummary": result.get("reality_check").evidence_summary if result.get("reality_check") else "",
             },
-            "sources": None,  # Can add web search sources here
+            "sources": result.get("sources") or [],
             "relevanceScore": memory_context.relevance_score if memory_context and hasattr(memory_context, 'relevance_score') else 0.0,
+            "ledger": result.get("ledger")
         }
         
         print(f"✅ Verdict: {verdict.verdict} ({verdict.confidence} confidence)")
@@ -185,11 +185,95 @@ async def get_verdict(request: VerdictRequest):
         import traceback
         traceback.print_exc()
         
-        # Return fallback response
-        raise HTTPException(
-            status_code=500,
-            detail=f"Verdict analysis failed: {str(e)}"
+# ============================================================================
+# Memory System Endpoints
+# ============================================================================
+
+class MemorySearchRequest(BaseModel):
+    query: str
+    user_profile: Optional[str] = "Developer"
+
+class PatternRequest(BaseModel):
+    user_profile: str
+
+@app.post("/api/memory/search")
+async def search_memory(request: MemorySearchRequest):
+    """
+    Live Memory Search: Findings similar thoughts/decisions as user types.
+    """
+    try:
+        axiom = get_axiom()
+        if not axiom.memory_manager:
+            return {"matches": [], "status": "memory_disabled"}
+            
+        # Create context (which includes performing the search)
+        # We used "query" as the topic to trigger the search
+        context = axiom.memory_manager.create_memory_context(
+            user_profile=request.user_profile,
+            topic=request.query,  # Treat query as topic for semantic search
+            current_query=request.query
         )
+        
+        # Format results for frontend
+        matches = []
+        
+        # 1. Past Decisions
+        if hasattr(context, "similar_decisions"):
+            for d in context.similar_decisions:
+                matches.append({
+                    "id": d.get("id", "unknown"),
+                    "type": "decision",
+                    "text": d.get("topic", ""),
+                    "verdict": d.get("verdict", ""),
+                    "confidence": d.get("confidence", 0),
+                    "relative_time": "previously", # Could calculate this
+                    "similarity": 0.85 # Mock for now, or extract if available
+                })
+
+        # 2. Topic Patterns
+        if hasattr(context, "topic_patterns"):
+            for p in context.topic_patterns:
+                matches.append({
+                    "id": f"pattern_{p.get('pattern', 'unknown')}",
+                    "type": "pattern",
+                    "text": p.get("description", ""),
+                    "verdict": "pattern",
+                    "confidence": p.get("confidence", 0),
+                    "similarity": 0.9
+                })
+
+        return {
+            "query": request.query,
+            "matches": matches[:5], # Limit to top 5
+            "status": "success"
+        }
+
+    except Exception as e:
+        print(f"❌ Error in /api/memory/search: {e}")
+        return {"matches": [], "error": str(e)}
+
+@app.post("/api/memory/patterns")
+async def get_patterns(request: PatternRequest):
+    """
+    Get user decision patterns and insights.
+    """
+    try:
+        axiom = get_axiom()
+        if not axiom.memory_manager:
+            return {"status": "memory_disabled"}
+            
+        # Get full profile summary
+        summary = axiom.memory_manager.get_user_profile_summary(request.user_profile)
+        
+        return {
+            "status": "success",
+            "data": summary
+        }
+
+    except Exception as e:
+        print(f"❌ Error in /api/memory/patterns: {e}")
+        return {"status": "error", "message": str(e)}
+
 
 # ============================================================================
 # Run with: python -m uvicorn app:app --reload

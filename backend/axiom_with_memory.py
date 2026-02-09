@@ -7,6 +7,13 @@ Wraps your existing graph with memory capabilities.
 from typing import Dict, Any, Optional 
 from datetime import datetime, timezone
 from opik import track
+from langsmith.run_trees import RunTree
+
+# 🩹 PATCH: Resolve Pydantic V2 compatibility issue with Opik/LangSmith
+try:
+    RunTree.model_rebuild()
+except Exception:
+    pass
 
 # Import your existing graph
 from graph.graph_utils import  AxiomState, derive_user_id  # , run_axiom_query

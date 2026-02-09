@@ -3,7 +3,7 @@ import { createThought } from '@/lib/actions';
 import { z } from 'zod';
 
 const createThoughtSchema = z.object({
-    journalId: z.string().uuid(),
+    journalId: z.string().uuid().optional(),
     title: z.string().min(1),
     content: z.string(),
     verdict: z.enum(['pursue', 'explore', 'watchlist', 'ignore', 'archive']).optional(),
