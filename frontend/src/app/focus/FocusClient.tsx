@@ -50,6 +50,11 @@ export default function FocusClient({ initialSession, availableThoughts = [] }: 
     const [driftReason, setDriftReason] = useState("");
     const [dbSessionId, setDbSessionId] = useState<string | null>(null);
 
+    const [newAssumption, setNewAssumption] = useState("");
+    const [newQuestion, setNewQuestion] = useState("");
+    const [isAddingAssumption, setIsAddingAssumption] = useState(false);
+    const [isAddingQuestion, setIsAddingQuestion] = useState(false);
+
     // Timer effect
     useEffect(() => {
         let interval: NodeJS.Timeout;
@@ -89,6 +94,26 @@ export default function FocusClient({ initialSession, availableThoughts = [] }: 
         setNewNote("");
     };
 
+    const handleAddAssumption = () => {
+        if (!newAssumption.trim() || !session) return;
+        setSession({
+            ...session,
+            assumptions: [...session.assumptions, newAssumption],
+        });
+        setNewAssumption("");
+        setIsAddingAssumption(false);
+    };
+
+    const handleAddQuestion = () => {
+        if (!newQuestion.trim() || !session) return;
+        setSession({
+            ...session,
+            openQuestions: [...session.openQuestions, newQuestion],
+        });
+        setNewQuestion("");
+        setIsAddingQuestion(false);
+    };
+
     const handleStartSession = async () => {
         if (!session) return;
         setIsActive(true);
@@ -117,12 +142,22 @@ export default function FocusClient({ initialSession, availableThoughts = [] }: 
                     productivityScore: 0.8, // default or calculated
                 });
                 alert("Session ended! Notes saved to journal.");
-                router.push("/journal-new"); // Or wherever the journal is
+                // Instead of navigating, allow new session
+                // router.push("/journal-new"); 
             } catch (error) {
                 console.error("Failed to complete session in DB:", error);
             }
         } else {
-            alert("Session ended! (Local only)");
+            // Local only
+        }
+    };
+
+    const handleResetSession = () => {
+        if (confirm("Are you sure? Current progress will be lost if not saved.")) {
+            setSession(null);
+            setElapsed(0);
+            setIsActive(false);
+            setNewNote("");
         }
     };
 
@@ -190,13 +225,22 @@ export default function FocusClient({ initialSession, availableThoughts = [] }: 
                         <h1 className="h1 mb-2">Focus</h1>
                         <p className="body" style={{ color: "var(--text-tertiary)" }}>Execution mode — stay on track, detect drift</p>
                     </div>
-                    <button
-                        onClick={() => setIsZenMode(true)}
-                        className="btn btn-secondary glass"
-                        style={{ display: isActive ? 'flex' : 'none', gap: '8px' }}
-                    >
-                        ✨ Enter Zen Mode
-                    </button>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                        <button
+                            onClick={handleResetSession}
+                            className="btn btn-ghost glass"
+                            style={{ display: isActive ? 'none' : 'flex' }}
+                        >
+                            ← Select Different Topic
+                        </button>
+                        <button
+                            onClick={() => setIsZenMode(true)}
+                            className="btn btn-secondary glass"
+                            style={{ display: isActive ? 'flex' : 'none', gap: '8px' }}
+                        >
+                            ✨ Enter Zen Mode
+                        </button>
+                    </div>
                 </header>
             )}
 
@@ -277,9 +321,14 @@ export default function FocusClient({ initialSession, availableThoughts = [] }: 
                             </div>
                             <div style={{ display: "flex", gap: "16px", justifyContent: "center" }}>
                                 {!isActive ? (
-                                    <button onClick={handleStartSession} className="btn btn-primary px-12 py-6 text-lg" style={{ background: "var(--accent-gold)", color: "#000", fontWeight: 700 }}>
-                                        Start Session
-                                    </button>
+                                    <div className="flex gap-4">
+                                        <button onClick={handleStartSession} className="btn btn-primary px-12 py-6 text-lg" style={{ background: "var(--accent-gold)", color: "#000", fontWeight: 700 }}>
+                                            {elapsed > 0 ? "Resume Session" : "Start Session"}
+                                        </button>
+                                        {elapsed > 0 && <button onClick={handleEndSession} className="btn btn-ghost px-8" style={{ border: "1px solid var(--border-primary)" }}>
+                                            Finish
+                                        </button>}
+                                    </div>
                                 ) : (
                                     <>
                                         <button onClick={() => setIsActive(false)} className="btn btn-secondary px-8">
@@ -380,11 +429,30 @@ export default function FocusClient({ initialSession, availableThoughts = [] }: 
                                         <span className="caption" style={{ fontSize: "13px", color: "var(--text-primary)" }}>{assumption}</span>
                                     </div>
                                 ))}
-                                {session.assumptions.length === 0 && <span className="caption italic">No assumptions recorded.</span>}
+                                {session.assumptions.length === 0 && !isAddingAssumption && <span className="caption italic">No assumptions recorded.</span>}
+
+                                {isAddingAssumption && (
+                                    <div className="flex gap-2 mt-2">
+                                        <input
+                                            autoFocus
+                                            className="input text-xs p-2 w-full"
+                                            value={newAssumption}
+                                            onChange={(e) => setNewAssumption(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleAddAssumption()}
+                                            placeholder="New assumption..."
+                                        />
+                                        <button onClick={handleAddAssumption} className="btn btn-primary btn-xs">Add</button>
+                                    </div>
+                                )}
                             </div>
-                            <button className="btn btn-ghost btn-sm mt-4 glass" style={{ width: "100%", fontSize: "11px" }}>
-                                + Add Assumption
-                            </button>
+                            {!isAddingAssumption && (
+                                <button
+                                    onClick={() => setIsAddingAssumption(true)}
+                                    className="btn btn-ghost btn-sm mt-4 glass"
+                                    style={{ width: "100%", fontSize: "11px" }}>
+                                    + Add Assumption
+                                </button>
+                            )}
                         </div>
 
                         {/* Open Questions */}
@@ -397,11 +465,30 @@ export default function FocusClient({ initialSession, availableThoughts = [] }: 
                                         <span className="caption" style={{ fontSize: "13px", color: "var(--text-primary)" }}>{question}</span>
                                     </div>
                                 ))}
-                                {session.openQuestions.length === 0 && <span className="caption italic">No open questions.</span>}
+                                {session.openQuestions.length === 0 && !isAddingQuestion && <span className="caption italic">No open questions.</span>}
+
+                                {isAddingQuestion && (
+                                    <div className="flex gap-2 mt-2">
+                                        <input
+                                            autoFocus
+                                            className="input text-xs p-2 w-full"
+                                            value={newQuestion}
+                                            onChange={(e) => setNewQuestion(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleAddQuestion()}
+                                            placeholder="What do you need to answer?"
+                                        />
+                                        <button onClick={handleAddQuestion} className="btn btn-primary btn-xs">Add</button>
+                                    </div>
+                                )}
                             </div>
-                            <button className="btn btn-ghost btn-sm mt-4 glass" style={{ width: "100%", fontSize: "11px" }}>
-                                + Add Question
-                            </button>
+                            {!isAddingQuestion && (
+                                <button
+                                    onClick={() => setIsAddingQuestion(true)}
+                                    className="btn btn-ghost btn-sm mt-4 glass"
+                                    style={{ width: "100%", fontSize: "11px" }}>
+                                    + Add Question
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}

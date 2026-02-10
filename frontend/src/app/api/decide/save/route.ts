@@ -29,14 +29,14 @@ export async function POST(request: NextRequest) {
             journalId,
             title,
             content: content || '',
-            verdict: verdict || null,
-            confidence: confidence || null,
-            metadata: {
-                reasoning,
-                actionItems,
-                reasonCodes,
-                toolEvidence,
-                sources,
+            verdict: verdict || undefined,
+            confidence: confidence || undefined,
+            reasoning,
+            actionItems,
+            reasonCodes,
+            toolEvidence,
+            sources,
+            context: {
                 savedAt: new Date().toISOString()
             }
         });

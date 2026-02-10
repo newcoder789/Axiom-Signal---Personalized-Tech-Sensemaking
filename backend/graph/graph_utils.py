@@ -42,9 +42,9 @@ try:
     from memory.integration import enhance_verdict_prompt
 
     MEMORY_AVAILABLE = True  
-    print("✅ Memory system loaded successfully")
+    print("[OK] Memory system loaded successfully")
 except ImportError as e:
-    print(f"⚠️  Memory system not available: {e}")
+    print(f"[WARN] Memory system not available: {e}")
     MEMORY_AVAILABLE = False
 
     # Create dummy classes for fallback
@@ -209,9 +209,9 @@ def get_memory_manager():
             _memory_manager = AxiomMemoryManager(
                 redis_url=os.getenv("REDIS_URL", "redis://localhost:6379")
             )
-            print("🧠 Memory manager initialized")
+            print("[MEMORY] Memory manager initialized")
         except Exception as e:
-            print(f"⚠️  Failed to initialize memory manager: {e}")
+            print(f"[WARN] Failed to initialize memory manager: {e}")
             _memory_manager = None
     return _memory_manager
 
@@ -350,7 +350,7 @@ def memory_context_node(state: AxiomState) -> AxiomState:
             state.memory_relevance_score = 0.0
 
     except Exception as e:
-        print(f"⚠️  Error loading memory context: {e}")
+        print(f"[WARN] Error loading memory context: {e}")
         import traceback
         traceback.print_exc()
         # FIXED: Ensure state is always in valid state even on error

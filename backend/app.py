@@ -3,7 +3,7 @@ FastAPI wrapper for Axiom with Power (Tools + Memory)
 Uses the existing backend infrastructure properly.
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
@@ -12,6 +12,11 @@ from dotenv import load_dotenv
 
 # Import existing Axiom infrastructure
 from axiom_with_power import AxiomWithPower, run_axiom_power
+from notifications.engine import AxiomNotificationEngine
+from notifications.engine import AxiomNotificationEngine
+from notifications.websocket import ws_manager
+from logic.conversation_manager import conversation_manager
+from logic.agent_evolution import agent_evolution
 
 load_dotenv()
 
@@ -25,6 +30,43 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ============================================================================
+# WebSocket for Proactive Notifications
+# ============================================================================
+
+@app.websocket("/ws")
+@app.websocket("/ws/notifications")
+async def websocket_endpoint(websocket: WebSocket):
+    await ws_manager.connect(websocket)
+    try:
+        while True:
+            # Keep connection alive
+            data = await websocket.receive_text()
+            # We don't expect client messages for now, but we keep it open
+    except WebSocketDisconnect:
+        ws_manager.disconnect(websocket)
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+        ws_manager.disconnect(websocket)
+
+# ============================================================================
+# Startup & Shutdown
+# ============================================================================
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize SQLite DB and Event System on startup."""
+    from database.engine import create_db_and_tables
+    from integration.app_connector import setup_event_handlers
+    
+    print("[RUNNING] Initializing SQLite DB and Event System on startup...")
+    create_db_and_tables()
+    print("[OK] SQLite Tables Created")
+    
+    print("[EVENT] Wiring Event Bus...")
+    await setup_event_handlers()
+    print("[OK] Event Bus Ready")
 
 # ============================================================================
 # Request/Response Models
@@ -43,19 +85,28 @@ class ActionItem(BaseModel):
 # Initialize Axiom
 # ============================================================================
 
-# Global instance (initialized once)
+# Global instances
 axiom_instance = None
+notification_engine = None
 
 def get_axiom():
     """Get or create Axiom instance"""
-    global axiom_instance
+    global axiom_instance, notification_engine
     if axiom_instance is None:
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
         try:
             axiom_instance = AxiomWithPower(redis_url=redis_url, debug=True)
-            print("✅ Axiom with Power initialized (Tools + Memory)")
+            print("[OK] Axiom with Power initialized (Tools + Memory)")
+            
+            # Initialize notification engine
+            if axiom_instance.memory_manager:
+                notification_engine = AxiomNotificationEngine(
+                    memory_manager=axiom_instance.memory_manager,
+                    ws_manager=ws_manager
+                )
+                print("[OK] Proactive Notification Engine initialized")
         except Exception as e:
-            print(f"⚠️  Axiom initialized without memory: {e}")
+            print(f"[WARN] Axiom initialized without memory: {e}")
     return axiom_instance
 
 # ============================================================================
@@ -72,8 +123,21 @@ def read_root():
         "status": "running"
     }
 
-@app.get("/health")
-def health_check():
+@app.get("/api/test-broadcast")
+async def test_broadcast():
+    """Temporary endpoint to test WS notifications"""
+    await ws_manager.broadcast({
+        "event": "notification",
+        "data": {
+            "type": "surprise",
+            "title": "Test Contradiction",
+            "content": "This is a test notification for the proactive RAG system."
+        }
+    })
+    return {"status": "broadcast_sent"}
+
+@app.get("/api/health")
+async def health_check():
     """Health check with system status"""
     try:
         axiom = get_axiom()
@@ -93,6 +157,7 @@ async def get_verdict(request: VerdictRequest):
     
     This uses:
     - Memory system (Redis vector DB with LTM + STM)
+    - SQL Memory (SQLite for structured history & patterns)
     - Tool evidence (freshness checker, market signal, friction estimator)
     - LangGraph workflow with deterministic rules
     - LLM fallback for mixed signals
@@ -178,6 +243,20 @@ async def get_verdict(request: VerdictRequest):
         }
         
         print(f"✅ Verdict: {verdict.verdict} ({verdict.confidence} confidence)")
+        
+        # PROACTIVE: Trigger notification analysis in background (don't block response)
+        if notification_engine:
+            import asyncio
+            asyncio.create_task(notification_engine.analyze_event(
+                "decision_made", 
+                {
+                    "user_profile": user_profile,
+                    "topic": topic,
+                    "verdict": verdict.verdict,
+                    "reasoning": verdict.reasoning,
+                }
+            ))
+            
         return response
         
     except Exception as e:
@@ -276,7 +355,407 @@ async def get_patterns(request: PatternRequest):
 
 
 # ============================================================================
-# Run with: python -m uvicorn app:app --reload
+# Assistant Board Endpoints
+# ============================================================================
+
+# Standard profile for demo consistency
+DEMO_USER_PROFILE = "Developer Intermediate developer. Risk tolerance: medium. Timeline: 3 months."
+
+class AssistantTaskRequest(BaseModel):
+    user_profile: Optional[str] = None
+    topic: Optional[str] = None
+    content: Optional[str] = None
+    context_type: Optional[str] = "latest"
+
+@app.post("/api/assistant/summarize")
+async def assistant_summarize(request: AssistantTaskRequest):
+    """Summarize recent activity or specific topic context."""
+    try:
+        axiom = get_axiom()
+        # Use provided profile or fallback to demo default
+        profile = request.user_profile or DEMO_USER_PROFILE
+        
+        # Retrieve recent context from memory
+        summary_data = axiom.memory_manager.get_user_profile_summary(profile)
+        
+        # If no data found and using custom profile, try demo profile as fallback
+        if not summary_data.get('recent_decisions') and profile != DEMO_USER_PROFILE:
+            print(f"⚠️ No data for '{profile}', falling back to demo profile.")
+            summary_data = axiom.memory_manager.get_user_profile_summary(DEMO_USER_PROFILE)
+        
+        # Simple LLM summarization of the memory traits/decisions
+        traits = summary_data.get('traits', [])
+        decisions = summary_data.get('recent_decisions', [])
+        
+        if not traits and not decisions:
+             return {"summary": "No sufficient history found to generate a summary yet. Try making a few decisions first!"}
+
+        traits_str = "\n".join([t.get('fact', '') for t in traits])
+        decisions_str = "\n".join([f"{d.get('topic')}: {d.get('verdict')}" for d in decisions])
+        
+        prompt = f"""
+        Analyze the following user technological interest profile and past decisions.
+        Provide a concise, high-level summary of their current 'tech focus' and any emerging themes.
+        
+        USER TRAITS:
+        {traits_str}
+        
+        RECENT DECISIONS:
+        {decisions_str}
+        
+        Format the response as clear, opinionated AXIOM-style summary.
+        """
+        
+        from graph.graph_utils import llm
+        from langchain_core.messages import SystemMessage, HumanMessage
+        
+        response = llm.invoke([
+            SystemMessage(content="You are AXIOM. Summarize the user's technical posture."),
+            HumanMessage(content=prompt)
+        ])
+        
+        return {"summary": response.content}
+    except Exception as e:
+        print(f"❌ Error in /api/assistant/summarize: {e}")
+        # Don't fail hard, return helpful message
+        return {"summary": f"Could not generate summary: {str(e)}"}
+
+@app.post("/api/assistant/extract-actions")
+async def assistant_extract_actions(request: AssistantTaskRequest):
+    """Extract action items from latest thoughts or specific topic."""
+    try:
+        content = request.content or ""
+        profile = request.user_profile or DEMO_USER_PROFILE
+        
+        if not content:
+            # Fallback to latest decision reasoning or content
+            axiom = get_axiom()
+            summary = axiom.memory_manager.get_user_profile_summary(profile)
+            
+            # Fallback to demo profile if needed
+            if not summary.get('recent_decisions') and profile != DEMO_USER_PROFILE:
+                summary = axiom.memory_manager.get_user_profile_summary(DEMO_USER_PROFILE)
+                
+            if summary.get('recent_decisions'):
+                content = summary['recent_decisions'][0].get('reasoning', '')
+        
+        if not content:
+             return {"actions": ["No recent content to extract actions from."]}
+
+        prompt = f"""
+        Extract specific, actionable next steps from this technical analysis:
+        ---
+        {content}
+        ---
+        Format as a JSON list of strings. If no actions are clear, suggest relevant learning paths.
+        Return ONLY the JSON list.
+        """
+        
+        from graph.graph_utils import llm
+        from langchain_core.messages import HumanMessage
+        import json
+        
+        msg = llm.invoke([HumanMessage(content=prompt)])
+        # Simple extraction
+        actions = []
+        try:
+            # Handle potential markdown formatting
+            clean_content = msg.content.strip().replace('```json', '').replace('```', '')
+            start = clean_content.find('[')
+            end = clean_content.rfind(']') + 1
+            if start != -1 and end != -1:
+                actions = json.loads(clean_content[start:end])
+            else:
+                actions = [msg.content]
+        except:
+            actions = [msg.content]
+
+        # PROACTIVE: Trigger notification for actions (Next Steps)
+        if actions and len(actions) > 0 and notification_engine:
+             import asyncio
+             asyncio.create_task(ws_manager.broadcast({
+                "event": "notification",
+                "data": {
+                    "type": "action",
+                    "title": "Next Steps Identified",
+                    "content": f"Found {len(actions)} potential actions. Check the Assistant panel."
+                }
+             }))
+            
+        return {"actions": actions}
+    except Exception as e:
+        print(f"❌ Error in /api/assistant/extract-actions: {e}")
+        return {"actions": ["Error extracting actions."]}
+
+@app.post("/api/assistant/contradictions")
+async def assistant_find_contradictions(request: AssistantTaskRequest):
+    """Find logical or strategic contradictions in user's technical history."""
+    try:
+        axiom = get_axiom()
+        profile = request.user_profile or DEMO_USER_PROFILE
+        summary = axiom.memory_manager.get_user_profile_summary(profile)
+        
+        # Fallback
+        if not summary.get('recent_decisions') and profile != DEMO_USER_PROFILE:
+             summary = axiom.memory_manager.get_user_profile_summary(DEMO_USER_PROFILE)
+        
+        traits = summary.get('traits', [])
+        decisions = summary.get('recent_decisions', [])
+        
+        if not decisions:
+            return {"contradictions": ["No past decisions found to compare against."]}
+            
+        prompt = f"""
+        Look for technical or strategic contradictions between these two sets of data:
+        
+        USER PREFERENCES/TRAITS:
+        {[t.get('fact') for t in traits]}
+        
+        PAST DECISIONS:
+        {[f"{d.get('topic')} -> {d.get('verdict')}: {d.get('reasoning')[:200]}" for d in decisions]}
+        
+        E.g., if they prefer 'low infrastructure depth' but chose 'Kubernetes' for a simple project.
+        Identify any such tensions. Be brief. If none, say "No contradictions detected."
+        """
+        
+        from graph.graph_utils import llm
+        from langchain_core.messages import HumanMessage
+        
+        msg = llm.invoke([HumanMessage(content=prompt)])
+        
+        # PROACTIVE: If contradictions found, trigger notification via WebSocket for demo effect
+        content = msg.content
+        if "No contradictions" not in content and len(content) > 10:
+             # Fire and forget
+             if notification_engine:
+                 import asyncio
+                 asyncio.create_task(ws_manager.broadcast({
+                    "event": "notification",
+                    "data": {
+                        "type": "surprise",
+                        "title": "Contradiction Found",
+                        "content": content[:150] + "..."
+                    }
+                 }))
+
+        return {"contradictions": [content]}
+    except Exception as e:
+        print(f"❌ Error in /api/assistant/contradictions: {e}")
+        return {"contradictions": [f"Error finding contradictions: {e}"]}
+
+
+@app.post("/api/journal")
+async def create_journal_entry(data: Dict[str, Any]):
+    """Create a new journal entry and trigger event."""
+    from memory.memory_service import MemoryService
+    from events.event_manager import AgentEventManager
+    
+    user_id = data.get("user_id", "default")
+    content = data.get("content", "")
+    metadata = data.get("metadata", {})
+    
+    if not content:
+        raise HTTPException(status_code=400, detail="Content is required")
+    
+    service = MemoryService()
+    memory_id = service.store_memory(
+        user_id=user_id,
+        content_type="journal",
+        content=content,
+        metadata=metadata
+    )
+    
+    # Trigger event
+    event_manager = AgentEventManager.get_instance()
+    await event_manager.emit("JOURNAL_CREATED", {
+        "user_id": user_id,
+        "content": content,
+        "metadata": {**metadata, "memory_id": memory_id}
+    })
+    
+    return {"success": True, "memory_id": memory_id}
+
+@app.patch("/api/thoughts/{memory_id}")
+async def update_thought_endpoint(memory_id: int, data: Dict[str, Any]):
+    """Update an existing thought/journal entry."""
+    from memory.memory_service import MemoryService
+    
+    content = data.get("content")
+    metadata = data.get("metadata")
+    tags = data.get("tags")
+    
+    service = MemoryService()
+    updated = service.update_memory(
+        memory_id=memory_id,
+        content=content,
+        metadata=metadata,
+        tags=tags
+    )
+    
+    if updated:
+        return {"success": True, "memory_id": memory_id}
+    raise HTTPException(status_code=404, detail="Memory not found")
+
+@app.get("/api/thoughts/latest")
+async def get_latest_thought(user_id: str = "default"):
+    """Get the most recent journal or verdict entry."""
+    from memory.memory_service import MemoryService
+    service = MemoryService()
+    recent = service.get_recent_memories(user_id, limit=1)
+    
+    if recent:
+        return recent[0]
+    raise HTTPException(status_code=404, detail="No thoughts found")
+
+@app.get("/api/thoughts/{memory_id}")
+async def get_thought_by_id(memory_id: int):
+    """Get a specific thought by ID."""
+    from memory.memory_service import MemoryService
+    service = MemoryService()
+    memory = service.get_memory(memory_id)
+    
+    if memory:
+        return memory
+    raise HTTPException(status_code=404, detail="Memory not found")
+
+# ============================================================================
+# Proactive Agent & Notifications
+# ============================================================================
+
+@app.post("/api/agent/analyze")
+async def manual_pattern_analysis(request: Request):
+    """Trigger manual pattern analysis for the user."""
+    from logic.pattern_detector import PatternDetector
+    user_id = "default" 
+    detector = PatternDetector()
+    patterns = await detector.analyze_patterns(user_id, trigger="manual")
+    return {"success": True, "patterns_found": len(patterns), "patterns": patterns}
+
+@app.get("/api/user/preferences")
+async def get_user_preferences_endpoint(user_id: str = "default"):
+    from memory.memory_service import MemoryService
+    service = MemoryService()
+    prefs = service.get_user_preferences(user_id)
+    return prefs
+
+@app.post("/api/user/preferences")
+async def update_user_preferences_endpoint(settings: Dict[str, Any], user_id: str = "default"):
+    from memory.memory_service import MemoryService
+    service = MemoryService()
+    updated = service.update_user_preferences(user_id, settings)
+    return updated
+
+@app.post("/api/agent/interaction/feedback")
+async def record_interaction_feedback(data: Dict[str, Any]):
+    from memory.memory_service import MemoryService
+    from events.event_manager import AgentEventManager
+    
+    interaction_id = data.get("interaction_id")
+    user_response = data.get("user_response") # 'acted', 'dismissed'
+    user_id = data.get("user_id", "default")
+    related_memory_ids = data.get("related_memory_ids", [])
+    
+    service = MemoryService()
+    success = service.update_interaction(interaction_id, user_response)
+    
+    if success:
+        event_manager = AgentEventManager.get_instance()
+        await event_manager.emit("USER_INTERACTION", {
+            "user_id": user_id,
+            "interaction_id": interaction_id,
+            "user_response": user_response,
+            "related_memory_ids": related_memory_ids
+        })
+        
+        # Update conversation context based on feedback
+        conversation_manager.add_message("user", f"Provided feedback: {user_response}")
+        
+        return {"success": True}
+    return {"success": False, "error": "Interaction not found"}
+
+@app.post("/api/agent/task")
+async def execute_agent_task(data: Dict[str, Any]):
+    """Execute a specific assistant task."""
+    from logic.task_handlers import TaskHandlers
+    
+    task_id = data.get("taskId") or data.get("action") # Support both formats
+    user_id = data.get("userId", "default")
+    context = data.get("context", {})
+    
+    if not task_id:
+        raise HTTPException(status_code=400, detail="taskId or action is required")
+        
+    
+    # Inject conversation context
+    context["conversation_history"] = conversation_manager.get_context()
+    context["agent_strategy"] = agent_evolution.get_strategy_config()
+    
+    handlers = TaskHandlers()
+    
+    # Record User Intent (if reasonable)
+    user_task_desc = f"Execute task: {task_id}"
+    if context.get("content"):
+        user_task_desc += f" on content: {context.get('content')[:50]}..."
+    elif context.get("latestEntry"):
+        user_task_desc += f" on entry: {context.get('latestEntry')[:50]}..."
+        
+    conversation_manager.add_message("user", user_task_desc)
+    
+    # Trigger Evolution (User is interacting)
+    agent_evolution.update_engagement("query")
+    
+    result = await handlers.execute_task(task_id, user_id, context)
+    
+    # Record Result
+    c_mgr_content = result.get("summary") or result.get("advice") or result.get("review", {}).get("text") or "Task completed"
+    conversation_manager.add_message("assistant", str(c_mgr_content)[:200])
+    
+    if result.get("success"):
+        return result
+    raise HTTPException(status_code=500, detail=result.get("error", "Task execution failed"))
+
+@app.get("/api/debug/state")
+async def get_debug_state(userId: str = "default"):
+    """Expose internal agent state for UI dashboards."""
+    from logic.conversation_manager import conversation_manager
+    from logic.agent_evolution import agent_evolution
+    return {
+        "evolution": {
+            "score": agent_evolution.engagement_score,
+            "strategy": agent_evolution.current_strategy,
+            "config": agent_evolution.get_strategy_config()
+        },
+        "history_depth": len(conversation_manager.history)
+    }
+
+@app.post("/api/user/memory/prune")
+async def prune_memories(data: Dict[str, Any]):
+    """Delete old or low-importance memories."""
+    user_id = data.get("userId", "default")
+    days = data.get("days", 30)
+    print(f"🔥 Pruning memories for {user_id} older than {days} days")
+    return {"success": True, "message": f"Pruned memories older than {days} days"}
+
+@app.post("/api/agent/strategy/override")
+async def override_strategy(data: Dict[str, Any]):
+    """Manually set agent behavior strategy."""
+    user_id = data.get("userId", "default")
+    strategy_name = data.get("strategy")
+    
+    if strategy_name not in ["concise", "balanced", "proactive"]:
+        raise HTTPException(status_code=400, detail="Invalid strategy")
+        
+    from logic.agent_evolution import agent_evolution
+    print(f"🤖 Manual strategy override for {user_id}: {strategy_name}")
+    # Force the score to trigger the strategy
+    score = 1.0 if strategy_name == "proactive" else 0.0 if strategy_name == "concise" else 0.5
+    agent_evolution.engagement_score = score
+    agent_evolution.current_strategy = strategy_name
+    
+    return {"success": True, "strategy": strategy_name}
+
+# ============================================================================
+# Run Application
 # ============================================================================
 
 if __name__ == "__main__":

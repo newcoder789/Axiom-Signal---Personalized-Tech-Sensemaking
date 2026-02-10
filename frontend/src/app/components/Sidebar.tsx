@@ -10,6 +10,7 @@ const navigation = [
     { name: "Journal", href: "/journal", icon: "▤" },
     { name: "Focus", href: "/focus", icon: "●" },
     { name: "History", href: "/history", icon: "◫" },
+    { name: "Settings", href: "/settings", icon: "⚙" },
 ];
 
 export default function Sidebar() {

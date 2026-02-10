@@ -3,6 +3,9 @@ import { getActiveDecisions, getDashboardStats, getJournals } from "@/lib/action
 import { QuickCapture } from "./components/dashboard/QuickCapture";
 import { getActiveFocusSession } from "@/lib/actions/focus";
 import { InsightsSection } from "./components/dashboard/InsightsSection";
+import { ModifyLastButton } from "./components/dashboard/ModifyLastButton";
+import { AssistantBoard } from "./components/dashboard/assistant/AssistantBoard";
+import { MotionWrapper } from "./components/ui/MotionWrapper";
 
 // Simple date formatter
 function formatTimeAgo(date: Date | string | null) {
@@ -71,7 +74,6 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          {/* Quick Actions */}
           <div style={{ marginTop: "auto" }}>
             <h3 className="label mb-4" style={{ color: "var(--text-secondary)" }}>Quick Actions</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -81,6 +83,7 @@ export default async function DashboardPage() {
               <Link href="/decide" className="btn btn-secondary" style={{ width: "100%", justifyContent: "flex-start" }}>
                 ⚖️ Make Decision
               </Link>
+              <ModifyLastButton />
             </div>
           </div>
         </div>
@@ -107,98 +110,110 @@ export default async function DashboardPage() {
             {/* Main Column */}
             <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
               {/* 1. Current Focus */}
-              <div className={`card ${activeSession ? 'card-premium' : ''}`} style={{
-                padding: "24px",
-                borderLeft: activeSession ? "4px solid var(--accent-green)" : "1px solid var(--border-primary)"
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
-                  <div style={{ flex: 1 }}>
-                    <div className="label mb-3" style={{ color: activeSession ? "var(--accent-green)" : "var(--text-tertiary)" }}>
-                      🎯 {activeSession ? "Active Focus" : "Operational State"}
-                    </div>
-                    {activeSession ? (
-                      <>
-                        <h2 className="h2 mb-3" style={{ fontSize: "20px" }}>{activeSession.title}</h2>
-                        <div style={{ display: "flex", gap: "24px", marginTop: "16px" }}>
-                          <div>
-                            <div className="caption">Session</div>
-                            <div className="body" style={{ color: "var(--accent-green)", fontWeight: 600 }}>In Deep Work</div>
-                          </div>
-                          <div>
-                            <div className="caption">Target</div>
-                            <div className="body">{activeSession.targetDurationMinutes} min remaining</div>
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <h2 className="h2 mb-2">Systems Ready</h2>
-                        <p className="caption">
-                          Select a decision to initiate a focus session and detect drift.
-                        </p>
-                      </>
-                    )}
-                  </div>
-                  <Link
-                    href={activeSession ? `/focus?thought=${activeSession.thoughtId}` : "/focus"}
-                    className={activeSession ? "btn btn-primary" : "btn btn-secondary"}
-                    style={activeSession ? { background: "var(--accent-green)", color: "#000", fontWeight: 600 } : {}}
-                  >
-                    {activeSession ? "Resume Session →" : "Start Session →"}
-                  </Link>
-                </div>
-              </div>
-
-              {/* 2. Active Decisions */}
-              <div className="card" style={{ padding: "24px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-                  <div className="label">🧠 Strategic Decisions</div>
-                  <Link href="/history" className="btn btn-ghost btn-sm">
-                    Full Ledger →
-                  </Link>
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  {decisions.length === 0 && (
-                    <div className="caption italic p-4 text-center glass rounded-lg">No active decisions. Start one in "Make Decision".</div>
-                  )}
-                  {decisions.map(decision => (
-                    <div
-                      key={decision.id}
-                      className={`glass ${decision.verdict === 'pursue' ? 'card-gold' : ''}`}
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        padding: "14px 16px",
-                        borderRadius: "10px",
-                        border: decision.verdict === 'pursue' ? "1px solid var(--accent-gold-muted)" : "1px solid rgba(255,255,255,0.05)"
-                      }}
-                    >
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
-                          <span className="body" style={{ fontWeight: 600 }}>{decision.title}</span>
-                          <span className={`verdict-badge verdict-${decision.verdict || 'explore'}`}>
-                            {decision.verdict || 'pending'}
-                          </span>
-                        </div>
-                        <div style={{ display: "flex", gap: "16px" }}>
-                          <span className="caption" style={{ color: "var(--text-tertiary)" }}>Confidence: {decision.confidence ? parseFloat(decision.confidence.toString()).toFixed(0) : 0}%</span>
-                          <span className="caption" style={{ color: "var(--text-tertiary)" }}>{formatTimeAgo(decision.updatedAt || decision.createdAt)}</span>
-                        </div>
+              <MotionWrapper delay={0.1}>
+                <div className={`card glass-premium ${activeSession ? 'card-premium' : ''}`} style={{
+                  padding: "24px",
+                  borderLeft: activeSession ? "4px solid var(--accent-green)" : "var(--glass-border)"
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
+                    <div style={{ flex: 1 }}>
+                      <div className="label mb-3" style={{ color: activeSession ? "var(--accent-green)" : "var(--text-tertiary)" }}>
+                        🎯 {activeSession ? "Active Focus" : "Operational State"}
                       </div>
-                      <Link href={`/journal/${decision.journalId}/write?thought=${decision.id}`} className="btn btn-ghost btn-sm" style={{ color: "var(--accent-gold)" }}>
-                        Open
-                      </Link>
+                      {activeSession ? (
+                        <>
+                          <h2 className="h2 mb-3" style={{ fontSize: "20px" }}>{activeSession.title}</h2>
+                          <div style={{ display: "flex", gap: "24px", marginTop: "16px" }}>
+                            <div>
+                              <div className="caption">Session</div>
+                              <div className="body" style={{ color: "var(--accent-green)", fontWeight: 600 }}>In Deep Work</div>
+                            </div>
+                            <div>
+                              <div className="caption">Target</div>
+                              <div className="body">{activeSession.targetDurationMinutes} min remaining</div>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <h2 className="h2 mb-2">Systems Ready</h2>
+                          <p className="caption">
+                            Select a decision to initiate a focus session and detect drift.
+                          </p>
+                        </>
+                      )}
                     </div>
-                  ))}
+                    <Link
+                      href={activeSession ? `/focus?thought=${activeSession.thoughtId}` : "/focus"}
+                      className={activeSession ? "btn btn-primary" : "btn btn-secondary"}
+                      style={activeSession ? { background: "var(--accent-green)", color: "#000", fontWeight: 600 } : {}}
+                    >
+                      {activeSession ? "Resume Session →" : "Start Session →"}
+                    </Link>
+                  </div>
                 </div>
-              </div>
+              </MotionWrapper>
+
+              <MotionWrapper delay={0.2}>
+                {/* 2. Active Decisions */}
+                <div className="card glass-premium" style={{ padding: "24px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                    <div className="label">🧠 Strategic Decisions</div>
+                    <Link href="/history" className="btn btn-ghost btn-sm">
+                      Full Ledger →
+                    </Link>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    {decisions.length === 0 && (
+                      <div className="caption italic p-4 text-center glass rounded-lg">No active decisions. Start one in "Make Decision".</div>
+                    )}
+                    {decisions.map(decision => (
+                      <div
+                        key={decision.id}
+                        className={`glass ${decision.verdict === 'pursue' ? 'card-gold' : ''}`}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "14px 16px",
+                          borderRadius: "10px",
+                          border: decision.verdict === 'pursue' ? "1px solid var(--accent-gold-muted)" : "1px solid rgba(255,255,255,0.05)"
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
+                            <span className="body" style={{ fontWeight: 600 }}>{decision.title}</span>
+                            <span className={`verdict-badge verdict-${decision.verdict || 'explore'}`}>
+                              {decision.verdict || 'pending'}
+                            </span>
+                          </div>
+                          <div style={{ display: "flex", gap: "16px" }}>
+                            <span className="caption" style={{ color: "var(--text-tertiary)" }}>Confidence: {decision.confidence ? parseFloat(decision.confidence.toString()).toFixed(0) : 0}%</span>
+                            <span className="caption" style={{ color: "var(--text-tertiary)" }}>{formatTimeAgo(decision.updatedAt || decision.createdAt)}</span>
+                          </div>
+                        </div>
+                        <Link href={`/journal/${decision.journalId}/write?thought=${decision.id}`} className="btn btn-ghost btn-sm" style={{ color: "var(--accent-gold)" }}>
+                          Open
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </MotionWrapper>
             </div>
 
-            {/* Right Column: Meta-Insights */}
+            {/* Right Column: Agent Assistance & Meta-Insights */}
             <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-              <InsightsSection decisions={decisions} />
+              <MotionWrapper delay={0.3}>
+                <div className="card glass-premium" style={{ padding: "0", overflow: "hidden" }}>
+                  <AssistantBoard />
+                </div>
+              </MotionWrapper>
+
+              <MotionWrapper delay={0.4}>
+                <InsightsSection decisions={decisions} />
+              </MotionWrapper>
 
               {/* Stats Mini Grid */}
               <div className="grid-2">

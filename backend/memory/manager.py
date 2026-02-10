@@ -7,13 +7,15 @@ Bridges between your Axiom pipeline and the Redis vector memory system.
 # import json
 from datetime import datetime, timezone
 import hashlib
-from typing import Dict, Any, Optional #, List, Tuple
+from typing import Dict, Any, Optional, List, Literal
 # from dataclasses import dataclass
 
 from redis.commands.search.query import Query
 from .schemas import (
     MemoryWriteContext,
     MemoryContext,
+    InteractionMemory,
+    MemoryType,
     # UserMemory,
     # TopicMemory,
     # DecisionMemory,
@@ -168,6 +170,97 @@ class AxiomMemoryManager:
             "context_used": None,  # Context was used in verdict node, not here
         }
 
+    def store_interaction(
+        self,
+        user_profile: str,
+        interaction_type: Literal["query", "response", "notification"],
+        content: str,
+        topic: Optional[str] = None,
+        role: Literal["user", "assistant", "system"] = "assistant",
+        confidence: float = 1.0,
+    ) -> Dict[str, Any]:
+        """
+        Store a user/agent interaction in memory.
+
+        Args:
+            user_profile: User profile description
+            interaction_type: Type of interaction
+            content: Main text content
+            topic: Optional topic context
+            role: Who sent the message
+            confidence: Confidence in the storage/content
+
+        Returns:
+            Dictionary with storage details
+        """
+        user_id = self.derive_user_id(user_profile)
+
+        interaction = InteractionMemory(
+            user_id=user_id,
+            interaction_type=interaction_type,
+            content=content,
+            topic=topic,
+            role=role,
+            confidence=confidence,
+        )
+
+        # Generate embedding if enabled
+        if self.use_embeddings:
+            interaction.embedding = self.vector_memory.encode_vec(content)
+
+        # Store in Redis via vector memory
+        key = f"axiom:interaction:{user_id}:{interaction.id}"
+        self.vector_memory.redis.hset(key, mapping=interaction.to_redis_dict())
+
+        return {"user_id": user_id, "interaction_id": interaction.id, "key": key}
+
+    def get_interaction_history(
+        self, user_profile: str, limit: int = 20
+    ) -> List[Dict[str, Any]]:
+        """
+        Retrieve recent interaction history for a user.
+
+        Args:
+            user_profile: User profile description
+            limit: Max interactions to return
+
+        Returns:
+            List of interactions sorted by time
+        """
+        user_id = self.derive_user_id(user_profile)
+
+        query = (
+            Query(f"@user_id:{user_id}")
+            .sort_by("created_at", asc=False)
+            .paging(0, limit)
+        )
+
+        try:
+            # We need to ensure we only query interaction memories
+            # We can do this by using the correct index or adding a filter
+            # For now, searching the generic decision index might not work if Interaction isn't there
+            # Axiom uses separate indexes per type or a combined one?
+            # redis_vector.py has separate idx:axiom:decisions etc.
+            
+            # Let's check redis_vector.py to see if I need a new index for        try:
+            results = self.vector_memory.redis.ft("idx:axiom:interactions").search(query)
+            
+            interactions = []
+            for doc in results.docs:
+                try:
+                    # Search results can have corrupted strings for bytes
+                    # So we fetch the clean raw data via hgetall
+                    raw_data = self.vector_memory.redis.hgetall(doc.id)
+                    if raw_data:
+                        interactions.append(InteractionMemory.from_redis_dict(raw_data).model_dump())
+                except Exception as inner_e:
+                    print(f"Failed to process interaction {doc.id}: {inner_e}")
+                    
+            return interactions
+        except Exception as e:
+            print(f"Interaction history retrieval failed: {e}")
+            return []
+
     def get_user_profile_summary(self, user_profile: str) -> Dict[str, Any]:
         """
         Get comprehensive user profile from memory system.
@@ -315,23 +408,23 @@ class AxiomMemoryManager:
                 results["decision_stored"],
             ]
         ):
-            print(f"💾 Stored memories for user {ctx.user_id}:")
+            print(f"[*] Stored memories for user {ctx.user_id}:")
 
             if results["user_traits"]:
-                print(f"  👤 User traits: {len(results['user_traits'])}")
+                print(f"  [USER] User traits: {len(results['user_traits'])}")
                 for trait in results["user_traits"]:
-                    print(f"    • {trait.get('description', 'Unknown')}")
+                    print(f"    - {trait.get('description', 'Unknown')}")
 
             if results["topic_patterns"]:
-                print(f"  📊 Topic patterns: {len(results['topic_patterns'])}")
+                print(f"  [TOPIC] Topic patterns: {len(results['topic_patterns'])}")
                 for pattern in results["topic_patterns"]:
-                    print(f"    • {pattern.get('description', 'Unknown')}")
+                    print(f"    - {pattern.get('description', 'Unknown')}")
 
             if results["decision_stored"]:
-                print(f"  🕰️  Decision stored: {ctx.verdict} on {ctx.topic}")
+                print(f"  [DATE] Decision stored: {ctx.verdict} on {ctx.topic}")
         else:
             print(
-                f"⏭️  No memories stored for {ctx.topic} (reasons: {results.get('reasons', {})})"
+                f"[SKIP] No memories stored for {ctx.topic} (reasons: {results.get('reasons', {})})"
             )
 
     def _calculate_profile_age(self, user_id: str) -> Optional[float]:

@@ -198,10 +198,17 @@ class RedisVectorMemory:
             return False  # Cannot check without required fields
         
         signal_status = signal_status.lower().strip()
-        confidence = confidence.lower().strip()
-        verdict = (verdict or "").lower().strip()
-        market_signal = (market_signal or "").lower().strip()
-        reasoning = (reasoning or "").lower()
+        if isinstance(confidence, (int, float)):
+            conf_score = float(confidence)
+        else:
+            confidence = str(confidence).lower().strip()
+            conf_score = 0.5
+            if "high" in confidence: conf_score = 0.9
+            elif "medium" in confidence: conf_score = 0.7
+            elif "low" in confidence: conf_score = 0.4
+            
+        if conf_score < 0.3:
+            return False # Too low confidence to matter for contract violation
         
         # Ensure hype_score is valid integer
         try:
@@ -374,6 +381,37 @@ class RedisVectorMemory:
             except Exception as e:
                 print(f"   [WARN]  Could not create decisions index: {e}")
                 print("   Make sure you're connected to Redis Stack with RediSearch (redis/redis-stack)")
+                self.search_available = False
+
+        # 4. Interactions Index
+        try:
+            self.redis.ft("idx:axiom:interactions").info()
+            print(f"   [OK] Interactions index exists ({self.index_algorithm})")
+        except Exception:
+            schema = (
+                TextField("user_id"),
+                TagField("interaction_type"),
+                TextField("content"),
+                TextField("topic"),
+                TagField("role"),
+                VectorField(
+                    "embedding",
+                    self.index_algorithm,
+                    algo_config,
+                ),
+                NumericField("created_at"),
+            )
+
+            try:
+                self.redis.ft("idx:axiom:interactions").create_index(
+                    fields=schema,
+                    definition=IndexDefinition(
+                        prefix=["axiom:interaction:"], index_type=IndexType.HASH
+                    ),
+                )
+                print(f"   [OK] Created interactions index ({self.index_algorithm})")
+            except Exception as e:
+                print(f"   [WARN]  Could not create interactions index: {e}")
                 self.search_available = False
 
     def _get_algo_config(self) -> Dict[str, Any]:
@@ -554,6 +592,7 @@ class RedisVectorMemory:
                 self.redis.ft("idx:axiom:user_traits").dropindex()
                 self.redis.ft("idx:axiom:topic_patterns").dropindex()
                 self.redis.ft("idx:axiom:decisions").dropindex()
+                self.redis.ft("idx:axiom:interactions").dropindex()
                 print("[OK] Dropped search indexes")
             except Exception:
                 pass
@@ -863,7 +902,7 @@ class RedisVectorMemory:
         existing_sig = self.redis.get(sig_key)
         if existing_sig:
             existing_id = existing_sig.decode() if isinstance(existing_sig, bytes) else existing_sig
-            print(f"   ℹ️  Decision already exists (sig: {sig}), skipping duplicate")
+            print(f"   [INFO] Decision already exists (sig: {sig}), skipping duplicate")
             return existing_id
         
         decision_id = f"axiom:decision:{ctx.user_id}:{hashlib.md5(ctx.topic.encode()).hexdigest()[:12]}"

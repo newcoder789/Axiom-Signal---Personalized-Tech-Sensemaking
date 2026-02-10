@@ -18,6 +18,7 @@ class MemoryType(str, Enum):
     USER = "user"
     TOPIC = "topic"
     DECISION = "decision"
+    INTERACTION = "interaction"
 
 """
 BaseMemory is acting as the parent class / contract that enforces a consistent way for all memory types (user traits, topic patterns, decisions, etc.) to interact with Redis. By centralizing the rules in one place, you avoid mismatches and guarantee that every subclass follows the same “path” into Redis.
@@ -113,27 +114,67 @@ class BaseMemory(BaseModel):
         Create memory from Redis-stored dict.
         Handles byte→array conversion and timestamp→datetime.
         """
-        processed = data.copy()
+        processed = {}
+        
+        # 1. First, decode any byte keys and values that aren't embeddings
+        for k, v in data.items():
+            # Decode key if it's bytes
+            key = k.decode() if isinstance(k, bytes) else k
+            
+            # Skip if it's an internal doc attribute we don't need
+            if key in ["id", "payload", "pk"]:
+                continue
+                
+            # Handle values
+            if key in ["embedding", "reasoning_embedding"]:
+                # Keep embeddings as bytes for np.frombuffer
+                processed[key] = v
+            elif isinstance(v, bytes):
+                # Decode other bytes to strings
+                try:
+                    processed[key] = v.decode()
+                except UnicodeDecodeError:
+                    processed[key] = v # Fallback
+            else:
+                processed[key] = v
 
-        # Convert bytes back to numpy arrays
+        # 2. Convert bytes back to numpy arrays
         if "embedding" in processed and isinstance(processed["embedding"], bytes):
-            processed["embedding"] = np.frombuffer(
-                processed["embedding"], dtype=np.float32
-            )
+            # FIXED: Handle case where embedding is empty bytes
+            if processed["embedding"]:
+                processed["embedding"] = np.frombuffer(
+                    processed["embedding"], dtype=np.float32
+                )
+            else:
+                processed["embedding"] = None
 
         if "reasoning_embedding" in processed and isinstance(
             processed["reasoning_embedding"], bytes
         ):
-            processed["reasoning_embedding"] = np.frombuffer(
-                processed["reasoning_embedding"], dtype=np.float32
-            )
+            if processed["reasoning_embedding"]:
+                processed["reasoning_embedding"] = np.frombuffer(
+                    processed["reasoning_embedding"], dtype=np.float32
+                )
+            else:
+                processed["reasoning_embedding"] = None
 
-        # Convert timestamps back to datetime
+        # 3. Convert timestamps back to datetime
         for field in ["created_at", "updated_at"]:
-            if field in processed and isinstance(processed[field], (int, float)):
-                processed[field] = datetime.fromtimestamp(processed[field], UTC)
+            if field in processed:
+                try:
+                    val = processed[field]
+                    if isinstance(val, (str, bytes)):
+                        val = float(val)
+                    if isinstance(val, (int, float)):
+                        processed[field] = datetime.fromtimestamp(val, timezone.utc)
+                except (ValueError, TypeError):
+                    pass
 
-        return cls(**processed)
+        # 4. Filter to only include fields defined in the model
+        model_fields = cls.model_fields.keys()
+        final_data = {k: v for k, v in processed.items() if k in model_fields}
+        
+        return cls(**final_data)
 
 
 class UserMemory(BaseMemory):
@@ -151,9 +192,7 @@ class UserMemory(BaseMemory):
         None, description="384-dim embedding of the fact description"
     )
 
-    @property
-    def memory_type(self) -> MemoryType:
-        return MemoryType.USER
+    memory_type: MemoryType = MemoryType.USER
 
     def reinforce(self, new_confidence: float = None):
         """Reinforce this trait with new evidence"""
@@ -187,9 +226,7 @@ class TopicMemory(BaseMemory):
         None, description="384-dim embedding of the pattern description"
     )
 
-    @property
-    def memory_type(self) -> MemoryType:
-        return MemoryType.TOPIC
+    memory_type: MemoryType = MemoryType.TOPIC
 
     def add_evidence(self, new_confidence: float, new_hype_score: int = None):
         """Add new evidence to this pattern"""
@@ -223,14 +260,29 @@ class DecisionMemory(BaseMemory):
         None, description="384-dim embedding of the reasoning text"
     )
 
-    @property
-    def memory_type(self) -> MemoryType:
-        return MemoryType.DECISION
+    memory_type: MemoryType = MemoryType.DECISION
 
     def is_expired(self) -> bool:
         """Check if this decision has expired based on TTL"""
         age_days = self.age_in_days()
         return age_days > self.ttl_days
+
+
+class InteractionMemory(BaseMemory):
+    """Dialogue history between user and agent"""
+
+    user_id: str
+    interaction_type: Literal["query", "response", "notification"]
+    content: str
+    topic: Optional[str] = None
+    role: Literal["user", "assistant", "system"] = "assistant"
+
+    # Vector field for semantic search
+    embedding: Optional[np.ndarray] = Field(
+        None, description="384-dim embedding of the interaction content"
+    )
+
+    memory_type: MemoryType = MemoryType.INTERACTION
 
 
 # Helper schemas for policy and context
@@ -270,14 +322,14 @@ class MemoryContext(BaseModel):
             for trait in self.user_traits[:3]:  # Top 3 only
                 desc = trait.get("fact", trait.get("description", ""))
                 conf = trait.get("confidence", 0.5)
-                sections.append(f"• {desc} (confidence: {conf:.0%})")
+                sections.append(f"- {desc} (confidence: {conf:.0%})")
 
         # Topic patterns section
         if self.topic_patterns:
-            sections.append("\n📊 TOPIC PATTERNS:")
+            sections.append("\n[TOPIC] TOPIC PATTERNS:")
             for pattern in self.topic_patterns[:2]:  # Top 2 only
                 desc = pattern.get("pattern", pattern.get("description", ""))
-                sections.append(f"• {desc}")
+                sections.append(f"- {desc}")
                 if "evidence_count" in pattern:
                     sections.append(
                         f"  Based on {pattern['evidence_count']} observations"
@@ -285,13 +337,13 @@ class MemoryContext(BaseModel):
 
         # Similar decisions section
         if self.similar_decisions:
-            sections.append("\n🕰️ SIMILAR PAST DECISIONS:")
+            sections.append("\n[PREV] SIMILAR PAST DECISIONS:")
             for decision in self.similar_decisions[:3]:  # Last 3
                 verdict = decision.get("verdict", "").upper()
                 topic = decision.get("topic", "")
 
                 verdict_emoji = {"PURSUE": "[OK]", "EXPLORE": "[SEARCH]", "WATCHLIST": "[NOTE]", "IGNORE": "[X]"}.get(
-                    verdict, "•"
+                    verdict, "-"
                 )
 
                 sections.append(f"{verdict_emoji} {topic} → {verdict}")

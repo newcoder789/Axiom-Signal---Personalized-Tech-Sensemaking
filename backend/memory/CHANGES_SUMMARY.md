@@ -232,7 +232,7 @@ mem = RedisVectorMemory(
 
 ### Scenario 1: Small Development Environment
 ```python
-from backend.memory.redis_vector import RedisVectorMemory
+from memory.redis_vector import RedisVectorMemory
 
 # FLAT = brute-force, exact nearest neighbors
 # Good for <10K vectors

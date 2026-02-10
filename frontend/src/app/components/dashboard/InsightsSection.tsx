@@ -15,6 +15,22 @@ interface InsightsSectionProps {
 
 export function InsightsSection({ decisions }: InsightsSectionProps) {
     const [insights, setInsights] = useState<Insight[]>([]);
+    const [evolution, setEvolution] = useState<any>(null);
+
+    useEffect(() => {
+        const fetchEvolution = async () => {
+            try {
+                const resp = await fetch('http://localhost:8000/api/debug/state');
+                if (resp.ok) {
+                    const data = await resp.json();
+                    setEvolution(data.evolution);
+                }
+            } catch (err) {
+                console.error("Failed to fetch evolution:", err);
+            }
+        };
+        fetchEvolution();
+    }, []);
 
     useEffect(() => {
         // Simple logic to generate "Meta-Insights" for the demo
@@ -49,7 +65,39 @@ export function InsightsSection({ decisions }: InsightsSectionProps) {
                     color: 'var(--accent-gold)'
                 });
             }
-        } else {
+        }
+
+        // Add Evolution Insight
+        if (evolution) {
+            const score = evolution.score;
+            let evolutionInsight: Insight;
+
+            if (score > 0.7) {
+                evolutionInsight = {
+                    icon: '🚀',
+                    title: 'Sync Level: High',
+                    description: `Agent strategy set to "${evolution.strategy}". We are deeply synchronized with your technical signal.`,
+                    color: 'var(--accent-gold)'
+                };
+            } else if (score < 0.3) {
+                evolutionInsight = {
+                    icon: '🧊',
+                    title: 'Sync Level: Low',
+                    description: 'The agent is operating in "Concise" mode to stay out of your way until more signals are captured.',
+                    color: 'var(--text-tertiary)'
+                };
+            } else {
+                evolutionInsight = {
+                    icon: '🧠',
+                    title: 'Sync Level: Standard',
+                    description: 'Maintaining a balanced posture. Interaction helps sharpen the technical sensemaking window.',
+                    color: 'var(--accent-blue)'
+                };
+            }
+            newInsights.unshift(evolutionInsight);
+        }
+
+        if (newInsights.length === 0) {
             newInsights.push({
                 icon: '💡',
                 title: 'Ready for Analysis',
@@ -59,7 +107,7 @@ export function InsightsSection({ decisions }: InsightsSectionProps) {
         }
 
         setInsights(newInsights);
-    }, [decisions]);
+    }, [decisions, evolution]);
 
     return (
         <div className="card card-premium" style={{ padding: "24px" }}>

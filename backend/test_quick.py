@@ -10,7 +10,7 @@ import json
 import os
 
 from axiom_with_memory import AxiomWithMemory
-import backend.test_cases as tc
+import test_cases as tc
 
 
 def run_suite_with_memory(redis_url: str = "redis://localhost:6379"):

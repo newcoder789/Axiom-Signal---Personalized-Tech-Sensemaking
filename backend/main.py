@@ -8,7 +8,7 @@ from axiom_with_memory import run_axiom_with_memory
 
 def main():
     """Main entry point"""
-    print("🧠 Axiom v0 - Tech Sensemaking with Memory")
+    print("[INIT] Axiom v0 - Tech Sensemaking with Memory")
     print("=" * 60)
 
     # Check command line arguments
@@ -32,7 +32,7 @@ def main():
         result = run_axiom_with_memory(topic, user_profile, debug=debug)
 
         # Display results
-        print("\n📊 FINAL VERDICT:")
+        print("\n[VERDICT] FINAL VERDICT:")
         print("-" * 40)
         print(
             f"Decision: {result.get('verdict', {}).get('verdict', 'unknown').upper()}"
@@ -43,28 +43,28 @@ def main():
         # Show reasoning
         reasoning = result.get("verdict", {}).get("reasoning", "")
         if reasoning:
-            print(f"\n📝 Reasoning: {reasoning}")
+            print(f"\n[INFO] Reasoning: {reasoning}")
 
         # Show action items
         actions = result.get("verdict", {}).get("action_items", [])
         if actions:
-            print("\n✅ Action Items:")
+            print("\n[OK] Action Items:")
             for action in actions:
-                print(f"  • {action}")
+                print(f"  - {action}")
 
         # Show memory info
         if "memory" in result:
             memory = result["memory"]
-            print("\n🧠 Memory System:")
+            print("\n[MEMORY] Memory System:")
             if memory.get("storage_result", {}).get("memory_stored"):
-                print("  ✓ Memories stored for future queries")
+                print("  [OK] Memories stored for future queries")
             else:
-                print("  ⏭️  No new memories stored (policy gates)")
+                print("  [SKIP] No new memories stored (policy gates)")
 
         # Show alignment metrics
         if "chain_coherence_score" in result:
-            print("\n🔗 Alignment Metrics:")
-            print(f"  • Chain Coherence: {result.get('chain_coherence_score', 0):.3f}")
+            print("\n[LINK] Alignment Metrics:")
+            print(f"  - Chain Coherence: {result.get('chain_coherence_score', 0):.3f}")
             print(
                 f"  • Signal-Evidence: {result.get('signal_evidence_alignment', 0):.3f}"
             )
@@ -74,12 +74,12 @@ def main():
 
         # Show contract violations if any
         if result.get("contract_violation"):
-            print("\n⚠️  Contract Violations Detected:")
+            print("\n[WARN] Contract Violations Detected:")
             for violation in result.get("violations", []):
-                print(f"  • {violation}")
+                print(f"  - {violation}")
 
     except Exception as e:
-        print(f"\n❌ Error: {e}")
+        print(f"\n[ERROR] Error: {e}")
         import traceback
 
         traceback.print_exc()

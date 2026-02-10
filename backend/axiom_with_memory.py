@@ -37,7 +37,7 @@ class AxiomWithMemory:
         # Health check
         health = self.memory_manager.health_check()
         if debug:
-            print(f"🧠 Memory system initialized: {health['status']}")
+            print(f"[MEMORY] Memory system initialized: {health['status']}")
             print(f"   Embeddings: {health['embeddings_available']}")
             print(f"   Redis: {health['redis_connected']}")
 
@@ -99,12 +99,12 @@ class AxiomWithMemory:
             memory_hints = memory_context.to_prompt_string()
 
             if self.debug:
-                print(f"📚 Memory context loaded ({len(memory_hints)} chars)")
+                print(f"[REDS] Memory context loaded ({len(memory_hints)} chars)")
                 if memory_hints != "No relevant memories found.":
                     print("   Contains memory hints")
 
         except Exception as e:
-            print(f"⚠️  Failed to load memory context: {e}")
+            print(f"[WARN] Failed to load memory context: {e}")
             memory_hints = "Memory system error. Proceeding without context."
 
         return memory_context, memory_hints
@@ -190,9 +190,9 @@ class AxiomWithMemory:
             )
 
             if state.contract_violation:
-                violation_items = [f"• {v}" for v in state.violations]
+                violation_items = [f"- {v}" for v in state.violations]
                 if len(violation_items) < 2:
-                    violation_items.append("• Re-evaluate when evidence is clearer")
+                    violation_items.append("- Re-evaluate when evidence is clearer")
                 if state.knowledge_gap:
                     state.verdict = VerdictOutput(
                         verdict="watchlist",
@@ -308,12 +308,12 @@ class AxiomWithMemory:
             )
 
             if self.debug and storage_result.get("memory_stored"):
-                print(f"💾 Memories stored for {topic}")
+                print(f"[*] Memories stored for {topic}")
 
             return storage_result
 
         except Exception as e:
-            print(f"⚠️  Failed to store memories: {e}")
+            print(f"[WARN] Failed to store memories: {e}")
             return {"error": str(e)}
 
     def get_user_insights(self, user_profile: str) -> Dict[str, Any]:
@@ -351,7 +351,7 @@ def run_axiom_with_memory(
 # Quick test function
 def test_integration():
     """Test the integration"""
-    print("🧪 Testing Axiom Graph + Memory Integration")
+    print("[TEST] Testing Axiom Graph + Memory Integration")
     print("=" * 50)
 
     # Test 1: Run with memory
@@ -379,7 +379,7 @@ def test_integration():
     health = axiom.health_check()
     print(f"  Status: {health.get('status')}")
 
-    print("\n✅ Integration test complete!")
+    print("\n[OK] Integration test complete!")
     return result
 
 

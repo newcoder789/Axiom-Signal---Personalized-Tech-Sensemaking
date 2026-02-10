@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Sidebar from "./components/Sidebar";
 import Navbar from "./components/Navbar";
+import NotificationManager from "./components/NotificationManager";
 import { Toaster } from '@/lib/toast';
 import { ClientProvider } from './providers';
 
@@ -21,6 +22,9 @@ export const metadata: Metadata = {
   description: "AI-powered decision-making for tech choices",
 };
 
+import { NotificationProvider } from './notifications/NotificationContext';
+import { NotificationCenter } from './notifications/NotificationCenter';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -30,17 +34,20 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <ClientProvider>
-          <div className="app-layout">
-            <Sidebar />
-            <div className="main-wrapper">
-              <Navbar />
-              <main className="main-content">
-                {children}
-              </main>
+          <NotificationProvider>
+            <div className="app-layout">
+              <Sidebar />
+              <div className="main-wrapper">
+                <Navbar />
+                <main className="main-content">
+                  {children}
+                </main>
+              </div>
             </div>
-          </div>
+            <NotificationCenter />
+            <Toaster />
+          </NotificationProvider>
         </ClientProvider>
-        <Toaster />
       </body>
     </html>
   );

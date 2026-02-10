@@ -13,11 +13,27 @@ export function QuickCapture() {
         router.push(`/decide?topic=${encodeURIComponent(input)}`);
     };
 
-    const handleJournal = () => {
+    const handleJournal = async () => {
         if (!input.trim()) return;
-        // Encode and redirect to journal write page (assuming it accepts query param)
-        // Or default to creating a new thought via API (but redirect is faster for UI)
-        router.push(`/journal?new=${encodeURIComponent(input)}`); // Updated to match journal page likely structure or just journal
+
+        try {
+            const response = await fetch('http://localhost:8000/api/journal', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    content: input,
+                    user_id: 'default'
+                })
+            });
+            const result = await response.json();
+            if (result.success) {
+                setInput('');
+                // Note: The websocket will trigger the "Edit" notification automatically
+                console.log("✅ Journal entry created:", result.memory_id);
+            }
+        } catch (error) {
+            console.error("❌ Failed to create journal entry:", error);
+        }
     };
 
     return (

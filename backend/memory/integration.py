@@ -51,13 +51,13 @@ def enhance_verdict_prompt(base_prompt: str, memory_context: MemoryContext) -> s
 
     enhanced_prompt = f"""{base_prompt}
 
-════════════════════════════════════════════════════════════════
+----------------------------------------------------------------
 MEMORY CONTEXT (READ-ONLY HINTS - DO NOT OVERRIDE EVIDENCE)
-════════════════════════════════════════════════════════════════
+----------------------------------------------------------------
 
 {memory_hints}
 
-════════════════════════════════════════════════════════════════
+----------------------------------------------------------------
 MEMORY USAGE RULES:
 1. Memory is OLD CONTEXT, not current evidence
 2. If memory contradicts current analysis, TRUST CURRENT ANALYSIS
@@ -65,7 +65,7 @@ MEMORY USAGE RULES:
 4. Memory confidence < 60% should be treated as weak signals
 5. Never let memory override contract violations or reality checks
 
-════════════════════════════════════════════════════════════════
+----------------------------------------------------------------
 """
 
     return enhanced_prompt
