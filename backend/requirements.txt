@@ -7,7 +7,7 @@ pydantic==2.9.0
 redis==5.0.8
 sentence-transformers==3.0.1
 numpy==1.26.4
-opik==0.0.1
+opik>=0.1.0
 langgraph==0.2.26
 langchain-community==0.3.0
 tavily-python
