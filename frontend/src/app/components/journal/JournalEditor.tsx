@@ -1,15 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Thought } from '@/lib/schema';
 
 interface JournalEditorProps {
     thought?: Thought | null;
     onAnalyze?: (content: { title: string; body: string }) => void;
     onSave?: (content: { title: string; body: string }) => void;
+    onChange?: (content: { title: string; body: string }) => void;
 }
 
-export function JournalEditor({ thought, onAnalyze, onSave }: JournalEditorProps) {
+export function JournalEditor({ thought, onAnalyze, onSave, onChange }: JournalEditorProps) {
     const [title, setTitle] = useState(thought?.title || '');
     const [body, setBody] = useState(thought?.content || '');
     const [assumptions, setAssumptions] = useState<string[]>([]);
@@ -17,28 +18,45 @@ export function JournalEditor({ thought, onAnalyze, onSave }: JournalEditorProps
     const [lastSaved, setLastSaved] = useState<Date | null>(null);
     const [isSaving, setIsSaving] = useState(false);
 
+    const baselineRef = useRef({ title: thought?.title || '', body: thought?.content || '' });
+
     // Reset editor when thought changes
     useEffect(() => {
-        setTitle(thought?.title || '');
-        setBody(thought?.content || '');
+        const t = thought?.title || '';
+        const b = thought?.content || '';
+        setTitle(t);
+        setBody(b);
+        baselineRef.current = { title: t, body: b };
         setLastSaved(null);
     }, [thought]);
 
+    // Live sync to parent
+    useEffect(() => {
+        if (onChange) {
+            onChange({ title, body });
+        }
+    }, [title, body, onChange]);
+
     // Auto-save functionality with debounce
     useEffect(() => {
+        // Only save if it's actually different from what we loaded or last saved
+        const isChanged = title !== baselineRef.current.title || body !== baselineRef.current.body;
+        if (!isChanged) return;
         if (!title.trim() && !body.trim()) return;
 
         const timeoutId = setTimeout(() => {
             setIsSaving(true);
             if (onSave) {
                 onSave({ title, body });
+                // Update baseline so we don't double-save
+                baselineRef.current = { title, body };
                 setLastSaved(new Date());
             }
             setTimeout(() => setIsSaving(false), 500);
         }, 2000); // 2 second debounce
 
         return () => clearTimeout(timeoutId);
-    }, [title, body]);
+    }, [title, body, onSave]);
 
     const handleAnalyze = () => {
         if (onAnalyze) {

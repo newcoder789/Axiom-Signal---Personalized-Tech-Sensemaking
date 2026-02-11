@@ -12,3 +12,6 @@ langgraph==0.2.26
 langchain-community==0.3.0
 tavily-python
 google-search-results
+sqlmodel==0.0.22
+psycopg2-binary==2.9.9
+gunicorn==23.0.0

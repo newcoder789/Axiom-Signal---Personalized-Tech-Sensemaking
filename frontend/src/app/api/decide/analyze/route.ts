@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Call backend Python API for everything else
-        const pythonBackendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+        const pythonBackendUrl = process.env.BACKEND_URL || 'http://localhost:8000';
         const response = await fetch(`${pythonBackendUrl}/api/verdict`, {
             method: 'POST',
             headers: {

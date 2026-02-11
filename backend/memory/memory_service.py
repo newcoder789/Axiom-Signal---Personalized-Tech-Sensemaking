@@ -63,6 +63,26 @@ class MemoryService:
             statement = statement.order_by(UserMemory.created_at.desc()).limit(limit)
             return session.exec(statement).all()
 
+    def get_memories_by_journal(self, user_id: str, journal_id: str, limit: int = 20) -> List[UserMemory]:
+        """Retrieve memories specifically associated with a journal ID."""
+        with Session(self.engine) as session:
+            # We search for the journal_id in the JSON metadata
+            # Since SQLite JSON is stored as string, we use LIKE for robust matching
+            statement = select(UserMemory).where(
+                UserMemory.user_id == user_id,
+                UserMemory.metadata_.like(f'%"{journal_id}"%')
+            ).order_by(UserMemory.created_at.desc()).limit(limit)
+            return session.exec(statement).all()
+
+    def search_memories(self, user_id: str, query: str, limit: int = 10) -> List[UserMemory]:
+        """Search memories by keyword content."""
+        with Session(self.engine) as session:
+            statement = select(UserMemory).where(
+                UserMemory.user_id == user_id,
+                UserMemory.content.ilike(f"%{query}%")
+            ).order_by(UserMemory.importance_score.desc(), UserMemory.created_at.desc()).limit(limit)
+            return session.exec(statement).all()
+
     def get_memories_by_tags(self, user_id: str, tags: List[str], limit: int = 20) -> List[UserMemory]:
         """Retrieve memories matching specific tags."""
         with Session(self.engine) as session:
@@ -230,3 +250,12 @@ class MemoryService:
              score += 0.1
             
         return min(max(score, 0.0), 1.0)
+
+    def clear_all_memories(self, user_id: str):
+        """Nuclear delete: wipes all memories and patterns for a user."""
+        from sqlalchemy import delete
+        from database.models import UserMemory
+        from sqlalchemy.orm import Session
+        with Session(self.engine) as session:
+            session.execute(delete(UserMemory).where(UserMemory.user_id == user_id))
+            session.commit()

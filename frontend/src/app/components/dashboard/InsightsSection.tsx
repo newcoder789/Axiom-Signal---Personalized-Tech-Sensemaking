@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { API_BASE_URL } from '@/lib/config';
 
 interface Insight {
     icon: string;
@@ -20,7 +21,7 @@ export function InsightsSection({ decisions }: InsightsSectionProps) {
     useEffect(() => {
         const fetchEvolution = async () => {
             try {
-                const resp = await fetch('http://localhost:8000/api/debug/state');
+                const resp = await fetch(`${API_BASE_URL}/api/debug/state`);
                 if (resp.ok) {
                     const data = await resp.json();
                     setEvolution(data.evolution);

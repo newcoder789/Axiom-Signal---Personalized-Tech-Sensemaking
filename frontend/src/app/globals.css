@@ -1043,3 +1043,50 @@ body {
     opacity: 0.5;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MARKDOWN CONTENT (Assistant Panel)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.markdown-content h1, .markdown-content h2, .markdown-content h3 {
+  color: var(--text-primary);
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+}
+
+.markdown-content h1 { font-size: 1.25rem; }
+.markdown-content h2 { font-size: 1.1rem; }
+.markdown-content h3 { font-size: 1rem; }
+
+.markdown-content p {
+  margin-bottom: 1em;
+}
+
+.markdown-content ul, .markdown-content ol {
+  margin-bottom: 1em;
+  padding-left: 1.5em;
+}
+
+.markdown-content li {
+  margin-bottom: 0.25em;
+}
+
+.markdown-content strong {
+  color: var(--accent-blue);
+  font-weight: 600;
+}
+
+.markdown-content blockquote {
+  border-left: 3px solid var(--border-secondary);
+  padding-left: 1em;
+  color: var(--text-secondary);
+  font-style: italic;
+  margin-bottom: 1em;
+}
+
+.markdown-content hr {
+  border: none;
+  border-top: 1px solid var(--border-primary);
+  margin: 1.5em 0;
+}

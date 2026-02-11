@@ -5,13 +5,16 @@ class TaskService {
     private taskHistory: Map<string, any[]> = new Map();
     private userContext: Map<string, Record<string, any>> = new Map();
 
-    async executeTask(taskId: string, userId = 'default') {
+    async executeTask(taskId: string, userId = 'default', manualContext: Record<string, any> = {}) {
         const task = this.tasks[taskId];
         if (!task) {
             throw new Error(`Task ${taskId} not found`);
         }
 
-        const context = await this.getContextForTask(userId, task);
+        let context = await this.getContextForTask(userId, task);
+
+        // Merge manual context (e.g. live editor content)
+        context = { ...context, ...manualContext };
 
         // Validate context - backend will handle missing fields but we ensure basic structure
         for (const requirement of task.requires) {
@@ -88,7 +91,8 @@ class TaskService {
     }
 
     async fetchContext(requirement: string, userId: string) {
-        const baseUrl = 'http://localhost:8000/api';
+        const { API_BASE_URL } = await import('../config');
+        const baseUrl = `${API_BASE_URL}/api`;
         try {
             switch (requirement) {
                 case 'selectedEntry':

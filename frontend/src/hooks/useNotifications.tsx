@@ -1,6 +1,7 @@
 
 import React, { useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
+import { WS_BASE_URL } from '../lib/config';
 
 interface AxiomNotification {
     type: 'surprise' | 'action' | 'insight';
@@ -68,7 +69,7 @@ export const useNotifications = () => {
 
         const connect = () => {
             console.log('Connecting to Axiom Notifications WebSocket...');
-            socket = new WebSocket('ws://localhost:8000/ws/notifications');
+            socket = new WebSocket(`${WS_BASE_URL}/ws/notifications`);
 
             socket.onopen = () => {
                 console.log('✅ Axiom Notifications Connected');

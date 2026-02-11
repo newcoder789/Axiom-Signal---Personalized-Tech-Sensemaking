@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MotionWrapper } from '../components/ui/MotionWrapper';
+import { API_BASE_URL } from '@/lib/config';
 
 interface Preferences {
     notification_settings: {
@@ -21,6 +22,24 @@ export default function SettingsPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
     const [pruneStatus, setPruneStatus] = useState<'idle' | 'loading' | 'success'>('idle');
+    const [wipeStatus, setWipeStatus] = useState<'idle' | 'loading' | 'success'>('idle');
+
+    const handleNuclearWipe = async () => {
+        if (!confirm("🚨 WARNING: This will permanently delete ALL memories and reset the agent's evolution. Continue?")) return;
+
+        setWipeStatus('loading');
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/user/memory/clear`, {
+                method: 'DELETE'
+            });
+            if (res.ok) {
+                setWipeStatus('success');
+                setTimeout(() => window.location.reload(), 2000);
+            }
+        } catch (e) {
+            setWipeStatus('idle');
+        }
+    };
 
     useEffect(() => {
         fetchData();
@@ -29,8 +48,8 @@ export default function SettingsPage() {
     const fetchData = async () => {
         try {
             const [prefRes, debugRes] = await Promise.all([
-                fetch('http://localhost:8000/api/user/preferences'),
-                fetch('http://localhost:8000/api/debug/state')
+                fetch(`${API_BASE_URL}/api/user/preferences`),
+                fetch(`${API_BASE_URL}/api/debug/state`)
             ]);
 
             if (prefRes.ok) setPrefs(await prefRes.json());
@@ -48,7 +67,7 @@ export default function SettingsPage() {
         setIsSaving(true);
         setSaveStatus('idle');
         try {
-            const res = await fetch('http://localhost:8000/api/user/preferences', {
+            const res = await fetch(`${API_BASE_URL}/api/user/preferences`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(prefs)
@@ -68,14 +87,14 @@ export default function SettingsPage() {
 
     const handleOverrideStrategy = async (strategy: string) => {
         try {
-            const res = await fetch('http://localhost:8000/api/agent/strategy/override', {
+            const res = await fetch(`${API_BASE_URL}/api/agent/strategy/override`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ strategy })
             });
             if (res.ok) {
                 const data = await res.json();
-                setEvolution(prev => ({ ...prev, strategy: data.strategy }));
+                setEvolution((prev: any) => ({ ...prev, strategy: data.strategy }));
                 fetchData(); // Refresh full state
             }
         } catch (e) {
@@ -86,7 +105,7 @@ export default function SettingsPage() {
     const handlePruneMemories = async () => {
         setPruneStatus('loading');
         try {
-            const res = await fetch('http://localhost:8000/api/user/memory/prune', {
+            const res = await fetch(`${API_BASE_URL}/api/user/memory/prune`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ days: 30 })
@@ -305,6 +324,34 @@ export default function SettingsPage() {
                                         }`} />
                                 </div>
                             </label>
+                        </div>
+                    </section>
+                </MotionWrapper>
+
+                {/* 5. Danger Zone */}
+                <MotionWrapper delay={0.5}>
+                    <section className="card card-premium p-6 border-red-500/20 bg-red-500/5 col-span-1 md:col-span-2">
+                        <div className="flex items-center gap-3 mb-4 text-red-400">
+                            <span className="text-xl">⚠️</span>
+                            <h2 className="text-xl font-medium">Danger Zone</h2>
+                        </div>
+                        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                            <div className="flex-1">
+                                <h3 className="text-sm font-semibold text-primary mb-1">Nuclear Reset</h3>
+                                <p className="caption opacity-60">
+                                    Permanently wipe all conversation history, decision journals, and reset agent evolution to baseline.
+                                    This action cannot be undone.
+                                </p>
+                            </div>
+                            <button
+                                onClick={handleNuclearWipe}
+                                disabled={wipeStatus === 'loading'}
+                                className={`px-6 py-3 rounded-xl border border-red-500/40 text-red-400 text-sm font-semibold hover:bg-red-500/20 transition-all whitespace-nowrap ${wipeStatus === 'loading' ? 'opacity-50' : ''
+                                    }`}
+                            >
+                                {wipeStatus === 'loading' ? 'Wiping...' :
+                                    wipeStatus === 'success' ? '✓ System Reset' : 'Nuclear Wipe Systems'}
+                            </button>
                         </div>
                     </section>
                 </MotionWrapper>

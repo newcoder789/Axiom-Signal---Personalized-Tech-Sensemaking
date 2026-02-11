@@ -2,6 +2,7 @@
 
 import { useNotifications } from "@/app/notifications/NotificationContext";
 import { useState } from "react";
+import { API_BASE_URL } from "@/lib/config";
 
 export function ModifyLastButton() {
     const { handleAction } = useNotifications();
@@ -10,7 +11,7 @@ export function ModifyLastButton() {
     const handleEditLast = async () => {
         setIsFetching(true);
         try {
-            const res = await fetch('http://localhost:8000/api/thoughts/latest?user_id=default');
+            const res = await fetch(`${API_BASE_URL}/api/thoughts/latest?user_id=default`);
             if (res.ok) {
                 const data = await res.json();
                 // We reuse the notification action mechanism to open the modal

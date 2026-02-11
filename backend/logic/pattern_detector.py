@@ -23,6 +23,7 @@ class PatternDetector:
         patterns.extend(self._detect_contradictions(user_id, memories))
         patterns.extend(self._detect_followup_needed(user_id, memories))
         patterns.extend(self._detect_technical_debt(user_id, memories))
+        patterns.extend(self._detect_semantic_clusters(user_id, memories))
         
         # Store and emit
         for p in patterns:
@@ -131,6 +132,7 @@ class PatternDetector:
                                 "suggestion": "Any progress or update?"
                             }
                         })
+        return patterns
     def _detect_technical_debt(self, user_id: str, memories: List[UserMemory]) -> List[Dict[str, Any]]:
         """Detect recurring mentions of technical debt or blockers."""
         patterns = []
@@ -156,4 +158,41 @@ class PatternDetector:
                     "suggestion": "Consider a 'Clearance Session' to address these build-ups."
                 }
             })
+        return patterns
+
+    def _detect_semantic_clusters(self, user_id: str, memories: List[UserMemory]) -> List[Dict[str, Any]]:
+        """Identify broad semantic clusters (e.g., 'Frontend Dev', 'Ops')."""
+        patterns = []
+        if len(memories) < 5: return []
+        
+        clusters = {
+            "Cloud & Infrastructure": ["aws", "docker", "k8s", "cloud", "deployment", "server", "infra"],
+            "Frontend Ecosystem": ["react", "nextjs", "css", "tailwind", "ui", "ux", "browser"],
+            "Data & Backend": ["database", "sql", "api", "python", "node", "redis", "schema"],
+            "Product Strategy": ["pdm", "roadmap", "user", "feedback", "market", "vision"]
+        }
+        
+        counts = {name: 0 for name in clusters}
+        cluster_memories = {name: [] for name in clusters}
+        
+        for m in memories:
+            content = (m.content + " " + (m.tags or "")).lower()
+            for name, keywords in clusters.items():
+                if any(k in content for k in keywords):
+                    counts[name] += 1
+                    cluster_memories[name].append(m.id)
+                    
+        for name, count in counts.items():
+            if count >= 3:
+                patterns.append({
+                    "type": "semantic_cluster",
+                    "cluster": name,
+                    "count": count,
+                    "memory_ids": cluster_memories[name],
+                    "severity": min(0.3 + (count * 0.05), 0.8),
+                    "details": {
+                        "message": f"Axiom detects a strong focus on {name}.",
+                        "suggestion": "This is becoming a primary cognitive focus area."
+                    }
+                })
         return patterns

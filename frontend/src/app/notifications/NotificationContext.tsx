@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import { API_BASE_URL, WS_BASE_URL } from '@/lib/config';
 
 // Types
 export interface NotificationButton {
@@ -28,6 +29,7 @@ interface NotificationContextType {
     isConnected: boolean;
     editingMemoryId: number | null;
     closeEditModal: () => void;
+    agentLogs: string[];
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -44,6 +46,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isConnected, setIsConnected] = useState(false);
     const [editingMemoryId, setEditingMemoryId] = useState<number | null>(null);
+    const [agentLogs, setAgentLogs] = useState<string[]>([]);
     const wsRef = useRef<WebSocket | null>(null);
     const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -51,7 +54,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         // In production, get real user ID
         const userId = "default";
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `ws://localhost:8000/ws/notifications?user_id=${userId}`;
+        const wsUrl = `${WS_BASE_URL}/ws/notifications?user_id=${userId}`;
 
         console.log("🔌 Connecting to Notification WS:", wsUrl);
 
@@ -80,6 +83,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                         urgency: 'medium',
                         created_at: new Date().toISOString()
                     });
+                } else if (data.event === 'AGENT_STATUS' && data.data) {
+                    setAgentLogs(prev => [data.data.message, ...prev].slice(0, 5));
                 }
             } catch (e) {
                 console.error("WS Parse Error:", e);
@@ -137,7 +142,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         // Call backend feedback API
         if (notification.interaction_id) {
             try {
-                await fetch('http://localhost:8000/api/agent/interaction/feedback', {
+                await fetch(`${API_BASE_URL}/api/agent/interaction/feedback`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -161,7 +166,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             handleAction,
             isConnected,
             editingMemoryId,
-            closeEditModal
+            closeEditModal,
+            agentLogs
         }}>
             {children}
             {editingMemoryId && (
@@ -182,7 +188,7 @@ const QuickEditModal: React.FC<{ id: number; onClose: () => void }> = ({ id, onC
     useEffect(() => {
         const fetchThought = async () => {
             try {
-                const res = await fetch(`http://localhost:8000/api/thoughts/${id}`);
+                const res = await fetch(`${API_BASE_URL}/api/thoughts/${id}`);
                 const data = await res.json();
                 setContent(data.content);
             } catch (e) {
@@ -196,7 +202,7 @@ const QuickEditModal: React.FC<{ id: number; onClose: () => void }> = ({ id, onC
 
     const handleSave = async () => {
         try {
-            await fetch(`http://localhost:8000/api/thoughts/${id}`, {
+            await fetch(`${API_BASE_URL}/api/thoughts/${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ content })

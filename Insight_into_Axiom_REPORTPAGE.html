@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Insight into Axiom: Executive Technical Report</title>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --accent-gold: #d29922;
+            --accent-blue: #58a6ff;
+            --border: #30363d;
+            --radius: 8px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            margin: 0;
+            padding: 40px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+        }
+
+        header {
+            border-bottom: 2px solid var(--accent-gold);
+            padding-bottom: 20px;
+            margin-bottom: 40px;
+        }
+
+        h1 { color: var(--text-primary); margin: 0; font-size: 2.5em; }
+        h2 { color: var(--accent-blue); border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-top: 40px; }
+        h3 { color: var(--text-primary); margin-top: 25px; }
+
+        .subtitle {
+            font-size: 1.2em;
+            color: var(--text-secondary);
+            margin-top: 10px;
+        }
+
+        .card {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .premium-border {
+            border-left: 4px solid var(--accent-gold);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th { background-color: rgba(88, 166, 255, 0.1); color: var(--accent-blue); }
+
+        .diagram {
+            background: #f0f0f0; /* Light for visibility in export */
+            padding: 20px;
+            border-radius: var(--radius);
+            margin: 20px 0;
+            color: #000;
+            font-family: monospace;
+            white-space: pre-wrap;
+            border: 2px dashed var(--accent-gold);
+        }
+
+        .pulse-box {
+            background: linear-gradient(135deg, rgba(210, 153, 34, 0.1), transparent);
+            padding: 15px;
+            border: 1px solid var(--accent-gold);
+            border-radius: var(--radius);
+            font-weight: bold;
+        }
+
+        footer {
+            margin-top: 60px;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.9em;
+        }
+
+        @media print {
+            body { padding: 0; background: #fff !important; color: #000 !important; }
+            .card { border: 1px solid #ccc; background: #fff; }
+            h1, h2, h3 { color: #000 !important; }
+            .diagram { border-color: #000; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Insight into Axiom</h1>
+            <div class="subtitle">The Technical Sensemaking Engine | Architectural Overview</div>
+        </header>
+
+        <section>
+            <h2>🌐 What is Axiom Signal?</h2>
+            <p>Axiom Signal is an <strong>Intelligence Layer</strong> designed for high-velocity technical decision-makers. It transforms the fragmented process of research, journaling, and decision-making into a structured, searchable, and AI-synthesized technical asset.</p>
+            <p>Axiom doesn't just store notes; it <strong>decodes the narrative arc</strong> of your engineering journey, identifying patterns, strategic contradictions, and visionary milestones that human developers often miss in the heat of delivery.</p>
+        </section>
+
+        <section>
+            <h2>🏛️ Multi-Layered Architecture</h2>
+            <div class="card">
+                <h3>1. Core Infrastructure (MERN + Systems)</h3>
+                <ul>
+                    <li><strong>Frontend (Next.js/React)</strong>: High-aesthetic interface focused on "Thought Capture."</li>
+                    <li><strong>API Layer (Node.js/Express)</strong>: Real-time interaction orchestration.</li>
+                    <li><strong>Intelligence Backend (FastAPI)</strong>: Houses LangGraph logic and RAG pipelines.</li>
+                    <li><strong>Systems Layer (Rust/Tokyo)</strong>: Performance-critical data processing.</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>2. Dual-Core Memory Strategy</h3>
+                <p>Combines <strong>Redis Vector Memory</strong> for semantic RAG with <strong>Postgres/SQLite</strong> for deterministic technical history.</p>
+            </div>
+        </section>
+
+        <section>
+            <h2>⚙️ Methodology: Journey Merging</h2>
+            <p>Axiom operates using advanced <strong>Journey Merging</strong>: synthesized live unsaved thoughts merged with deep historical records.</p>
+            
+            <div class="diagram">
+ARCHITECTURE FLOW:
+User -> UI (Next.js) -> Express API -> [Redis & Postgres]
+   | (Task Trigger)
+   V
+FastAPI Backend -> LangGraph Orchestrator
+   | (Tools + LLM)
+   V
+Synthesized Insight -> UI
+            </div>
+        </section>
+
+        <section>
+            <h2>🏎️ Cross-Topic Intelligence</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Domain</th>
+                        <th>Axiom Reaction</th>
+                        <th>Strategic Focus</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Frontend</strong></td>
+                        <td>Analyze Figma to React workflows</td>
+                        <td>Component design & Reusability</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Systems</strong></td>
+                        <td>Audit Tokyo & Concurrency</td>
+                        <td>Memory Safety & Concurrency</td>
+                    </tr>
+                    <tr>
+                        <td><strong>DevOps</strong></td>
+                        <td>Summarize Deployment Evolution</td>
+                        <td>Pipeline Reliability & Complexity</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section>
+            <h2>🏆 Case Study: Executive Synthesis</h2>
+            <div class="card premium-border">
+                <h3>[EXAMPLE] Executive Technical Synthesis: Axiom Engine</h3>
+                <p><em>"Strategic transition from backend infrastructure discovery (MERN) to high-performance systems (Rust/Tokyo)."</em></p>
+                <ul>
+                    <li><strong>Vision</strong>: Bridging Figma Design with AI-Powered Computer Vision.</li>
+                    <li><strong>Milestones</strong>: Identified learning friction in Tokyo; pivoted to structured sessions.</li>
+                </ul>
+                <div class="pulse-box">
+                    Axiom Pulse: High Impact Score (90%) | Strategic Commitment Verified.
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            <p>Axiom Signal &copy; 2026 | Technical Sensemaking for Visionary Builders</p>
+        </footer>
+    </div>
+</body>
+</html>

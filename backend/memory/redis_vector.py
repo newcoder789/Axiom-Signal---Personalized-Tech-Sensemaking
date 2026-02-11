@@ -61,10 +61,9 @@ class RedisVectorMemory:
     """
 
     def __init__(self, redis_url: str = "redis://localhost:6379", index_algorithm: str = "FLAT", memory_threshold_mb: int = 512):
-        # Connect to Redis Stack - force host and port
-        self.redis = redis.Redis(
-            host="127.0.0.1",
-            port=6379,
+        # Connect to Redis Stack using the provided URL
+        self.redis = redis.Redis.from_url(
+            redis_url,
             decode_responses=False,  # Keep bytes for embeddings
             socket_connect_timeout=5,
             socket_keepalive=True,

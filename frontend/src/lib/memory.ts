@@ -1,6 +1,8 @@
 // import { ActionItem } from "./types";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+import { API_BASE_URL } from './config';
+
+const BACKEND_URL = API_BASE_URL;
 
 export interface MemoryMatch {
     id: string;

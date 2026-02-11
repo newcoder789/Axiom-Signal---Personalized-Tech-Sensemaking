@@ -257,17 +257,60 @@ export default function HistoryClient({ events }: { events: HistoryEvent[] }) {
                     )}
 
                     {selectedEvent && (
-                        <div className="animate-fade-in">
-                            <h3 className="h3 mb-4">Event Details</h3>
+                        <div className="animate-fade-in" style={{ paddingBottom: '32px' }}>
+                            <h3 className="h3 mb-4">Technical Snapshot</h3>
 
-                            <div className="card card-sm" style={{ marginBottom: "16px" }}>
+                            {/* Key Stats Card */}
+                            <div className="card card-sm" style={{ marginBottom: '24px', background: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                                <div className="label mb-2" style={{ color: 'var(--accent-blue)' }}>Axiom Pulse</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                        {selectedEvent.verdict?.toUpperCase() || "RECORDED"}
+                                    </div>
+                                    <div className="caption" style={{ opacity: 0.8 }}>
+                                        Confidence: <span style={{ color: 'var(--text-primary)' }}>{selectedEvent.confidence || 0}%</span>
+                                    </div>
+                                    <div className="caption" style={{ opacity: 0.8 }}>
+                                        Impact Score: <span style={{ color: 'var(--text-primary)' }}>{(selectedEvent.confidence || 0) > 80 ? 'HIGH' : 'MEDIUM'}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Executive Summary Section */}
+                            <div style={{ marginBottom: '24px' }}>
+                                <h4 className="label mb-2" style={{ fontSize: '11px', letterSpacing: '0.05em' }}>EXECUTIVE SUMMARY</h4>
+                                <div style={{
+                                    fontSize: '13px',
+                                    lineHeight: 1.6,
+                                    color: 'var(--text-secondary)',
+                                    background: 'var(--bg-primary)',
+                                    padding: '16px',
+                                    borderRadius: '8px',
+                                    border: '1px solid var(--border-primary)'
+                                }}>
+                                    {selectedEvent.type === 'decision' ? (
+                                        <>
+                                            <strong>{selectedEvent.topic}</strong>: Evaluated with a <strong>{selectedEvent.verdict}</strong> verdict.
+                                            The reasoning centers on <em>{selectedEvent.reason}</em>.
+                                            This represents a strategic {(selectedEvent.confidence || 0) > 70 ? 'commitment' : 'exploration'} in the technical journey.
+                                        </>
+                                    ) : (
+                                        <>
+                                            Recorded as a <strong>{selectedEvent.topic}</strong> entry.
+                                            Initial reflection: <span style={{ fontStyle: 'italic' }}>"{selectedEvent.journalSnippet}"</span>.
+                                            This serves as foundational evidence for future architectural pivots.
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Metadata List */}
+                            <div className="card card-sm">
                                 <div className="label mb-2">Metadata</div>
                                 <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                                    <div className="caption">Type: <span className="text-primary">{getEventTypeLabel(selectedEvent.type)}</span></div>
-                                    <div className="caption">Date: <span className="text-primary">{selectedEvent.date}</span></div>
-                                    {selectedEvent.confidence && (
-                                        <div className="caption">Confidence: <span className="text-primary">{selectedEvent.confidence}%</span></div>
-                                    )}
+                                    <div className="caption">Event ID: <span className="text-primary" style={{ fontSize: '10px' }}>{selectedEvent.id}</span></div>
+                                    <div className="caption">Timeline: <span className="text-primary">{selectedEvent.date}</span></div>
+                                    <div className="caption">Status: <span className="text-primary">Archived & Indexed</span></div>
                                 </div>
                             </div>
                         </div>

@@ -1,3 +1,5 @@
+import { API_BASE_URL } from '../config';
+
 export interface TaskItem {
     id: string;
     endpoint: string;
@@ -11,10 +13,12 @@ export interface TaskItem {
     priority: number;
 }
 
+const TASK_API = `${API_BASE_URL}/api/agent/task`;
+
 export const TASK_CONFIG: Record<string, TaskItem> = {
     'analyze': {
         id: 'analyze',
-        endpoint: 'http://localhost:8000/api/agent/task',
+        endpoint: TASK_API,
         method: 'POST',
         requires: ['selectedEntry'],
         action: 'analyze',
@@ -26,7 +30,7 @@ export const TASK_CONFIG: Record<string, TaskItem> = {
     },
     'summarize': {
         id: 'summarize',
-        endpoint: 'http://localhost:8000/api/agent/task',
+        endpoint: TASK_API,
         method: 'POST',
         requires: ['timeRange'],
         action: 'summarize',
@@ -38,7 +42,7 @@ export const TASK_CONFIG: Record<string, TaskItem> = {
     },
     'extract-actions': {
         id: 'extract-actions',
-        endpoint: 'http://localhost:8000/api/agent/task',
+        endpoint: TASK_API,
         method: 'POST',
         requires: ['selectedEntry'],
         action: 'extract-actions',
@@ -50,7 +54,7 @@ export const TASK_CONFIG: Record<string, TaskItem> = {
     },
     'find-contradictions': {
         id: 'find-contradictions',
-        endpoint: 'http://localhost:8000/api/agent/task',
+        endpoint: TASK_API,
         method: 'POST',
         requires: ['context'],
         action: 'find-contradictions',
@@ -62,7 +66,7 @@ export const TASK_CONFIG: Record<string, TaskItem> = {
     },
     'quick-advice': {
         id: 'quick-advice',
-        endpoint: 'http://localhost:8000/api/agent/task',
+        endpoint: TASK_API,
         method: 'POST',
         requires: ['latestEntry'],
         action: 'quick-advice',
@@ -74,7 +78,7 @@ export const TASK_CONFIG: Record<string, TaskItem> = {
     },
     'daily-review': {
         id: 'daily-review',
-        endpoint: 'http://localhost:8000/api/agent/task',
+        endpoint: TASK_API,
         method: 'POST',
         requires: ['todayEntries'],
         action: 'daily-review',
@@ -86,7 +90,7 @@ export const TASK_CONFIG: Record<string, TaskItem> = {
     },
     'decide-now': {
         id: 'decide-now',
-        endpoint: 'http://localhost:8000/api/agent/task',
+        endpoint: TASK_API,
         method: 'POST',
         requires: ['pendingItems'],
         action: 'decide-now',
@@ -98,7 +102,7 @@ export const TASK_CONFIG: Record<string, TaskItem> = {
     },
     'extract-tasks': {
         id: 'extract-tasks',
-        endpoint: 'http://localhost:8000/api/agent/task',
+        endpoint: TASK_API,
         method: 'POST',
         requires: ['selectedEntry'],
         action: 'extract-tasks',
@@ -107,5 +111,17 @@ export const TASK_CONFIG: Record<string, TaskItem> = {
         icon: '📝',
         category: 'extraction',
         priority: 8
+    },
+    'generate_pitch': {
+        id: 'generate_pitch',
+        endpoint: TASK_API,
+        method: 'POST',
+        requires: ['selectedEntry'],
+        action: 'generate_pitch',
+        buttonText: 'Generate Pitch',
+        description: 'Generate visionary executive report',
+        icon: '🏆',
+        category: 'analysis',
+        priority: 9
     }
 };

@@ -14,7 +14,12 @@ export default function JournalDetailClient({ journalId, initialThoughts }: Jour
     const [selectedThought, setSelectedThought] = useState<Thought | null>(
         initialThoughts[0] || null
     );
+    const [isFocusExpanded, setIsFocusExpanded] = useState(false);
     const router = useRouter();
+
+    const regularThoughts = thoughts.filter(t => !t.context || (t.context as any).type !== 'auto_journal');
+    const focusSessions = thoughts.filter(t => t.context && (t.context as any).type === 'auto_journal');
+
     console.log(journalId)
 
     const getVerdictColor = (verdict: string) => {
@@ -104,7 +109,7 @@ export default function JournalDetailClient({ journalId, initialThoughts }: Jour
                         </div>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            {thoughts.map((thought) => (
+                            {regularThoughts.map((thought) => (
                                 <button
                                     key={thought.id}
                                     onClick={() => setSelectedThought(thought)}
@@ -171,6 +176,73 @@ export default function JournalDetailClient({ journalId, initialThoughts }: Jour
                                     </div>
                                 </button>
                             ))}
+
+                            {/* Focus Sessions Collapsible Section */}
+                            {focusSessions.length > 0 && (
+                                <div style={{ marginTop: '12px' }}>
+                                    <button
+                                        onClick={() => setIsFocusExpanded(!isFocusExpanded)}
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            background: 'rgba(96, 165, 250, 0.05)',
+                                            border: '1px solid rgba(96, 165, 250, 0.1)',
+                                            borderRadius: '8px',
+                                            color: '#60a5fa',
+                                            fontSize: '13px',
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            marginBottom: '8px'
+                                        }}
+                                    >
+                                        <span>⏱️ Focus Sessions ({focusSessions.length})</span>
+                                        <span>{isFocusExpanded ? '▼' : '▶'}</span>
+                                    </button>
+
+                                    {isFocusExpanded && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '8px' }}>
+                                            {focusSessions.map((thought) => (
+                                                <button
+                                                    key={thought.id}
+                                                    onClick={() => setSelectedThought(thought)}
+                                                    style={{
+                                                        width: '100%',
+                                                        textAlign: 'left',
+                                                        padding: '12px',
+                                                        borderRadius: '10px',
+                                                        transition: 'all 0.2s',
+                                                        background: selectedThought?.id === thought.id
+                                                            ? 'rgba(96, 165, 250, 0.1)'
+                                                            : 'transparent',
+                                                        border: `1px solid ${selectedThought?.id === thought.id
+                                                            ? '#60a5fa'
+                                                            : 'transparent'}`,
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    <h4 style={{
+                                                        fontSize: '13px',
+                                                        fontWeight: 500,
+                                                        color: 'var(--text-primary)',
+                                                        marginBottom: '4px',
+                                                        whiteSpace: 'nowrap',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis'
+                                                    }}>
+                                                        {thought.title}
+                                                    </h4>
+                                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                                        {new Date(thought.createdAt ?? new Date()).toLocaleDateString()}
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

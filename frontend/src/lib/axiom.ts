@@ -2,8 +2,10 @@ import { db } from './db';
 import { thoughts } from './schema';
 import { eq, and, or, like, desc } from 'drizzle-orm';
 
+import { API_BASE_URL } from './config';
+
 // Backend URL from environment
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = API_BASE_URL;
 
 export interface AxiomAnalysis {
     verdict: 'pursue' | 'explore' | 'watchlist' | 'ignore' | 'archive';

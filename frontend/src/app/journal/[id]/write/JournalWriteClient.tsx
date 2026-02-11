@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { JournalEditor } from '@/app/components/journal/JournalEditor';
 import { AssistantPanel } from '@/app/components/journal/AssistantPanel';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -40,18 +40,33 @@ export default function JournalWriteClient({ journal, initialThoughts }: Props) 
     const [searchQuery, setSearchQuery] = useState('');
     const [filterVerdict, setFilterVerdict] = useState<string>('all');
     const [isLoadingThoughts, setIsLoadingThoughts] = useState(false);
+    const [liveContent, setLiveContent] = useState({ title: '', body: '' });
+    const [isFocusExpanded, setIsFocusExpanded] = useState(false);
 
     // Reload thoughts when needed
-    const reloadThoughts = async () => {
-        setIsLoadingThoughts(true);
+    const reloadThoughts = async (silent = false) => {
+        if (!silent) setIsLoadingThoughts(true);
         try {
             const updatedThoughts = await getThoughtsByJournal(journal.id);
             setThoughts(updatedThoughts);
         } catch (error) {
             console.error('Failed to reload thoughts:', error);
         } finally {
-            setIsLoadingThoughts(false);
+            if (!silent) setIsLoadingThoughts(false);
         }
+    };
+
+    const handleSelectThought = (thought: Thought | null) => {
+        setSelectedThought(thought);
+
+        // Update URL query param silently
+        const params = new URLSearchParams(searchParams.toString());
+        if (thought?.id) {
+            params.set('thought', thought.id);
+        } else {
+            params.delete('thought');
+        }
+        router.replace(`${window.location.pathname}?${params.toString()}`, { scroll: false });
     };
 
     const filteredThoughts = thoughts.filter(thought => {
@@ -124,10 +139,10 @@ export default function JournalWriteClient({ journal, initialThoughts }: Props) 
                 }
 
                 const updatedThought = await response.json();
-                await reloadThoughts();
-                setSelectedThought(updatedThought);
+                await reloadThoughts(true); // Silent reload
+                setSelectedThought(updatedThought); // Update state only, don't touch URL
                 setVerdictData(null);
-                successToast('Entry updated!');
+                // successToast('Entry updated!'); // Removed for less noise during auto-save
             } else {
                 // Create new thought
                 const newThought = await createThought({
@@ -142,8 +157,8 @@ export default function JournalWriteClient({ journal, initialThoughts }: Props) 
                 });
 
                 // Reload thoughts and select the new one
-                await reloadThoughts();
-                setSelectedThought(newThought);
+                await reloadThoughts(true); // Silent reload
+                handleSelectThought(newThought);
                 setVerdictData(null);
                 successToast('Entry saved!');
             }
@@ -241,71 +256,128 @@ export default function JournalWriteClient({ journal, initialThoughts }: Props) 
                             No entries found
                         </div>
                     ) : (
-                        filteredThoughts.map((thought) => (
-                            <div
-                                key={thought.id}
-                                onClick={() => setSelectedThought(thought)}
-                                style={{
-                                    padding: '12px',
-                                    marginBottom: '8px',
-                                    background: selectedThought?.id === thought.id ? '#0f1115' : 'transparent',
-                                    border: `1px solid ${selectedThought?.id === thought.id ? '#d6a14b' : '#222632'}`,
-                                    borderRadius: '8px',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s'
-                                }}
-                            >
-                                <h3 style={{
-                                    fontSize: '13px',
-                                    fontWeight: 500,
-                                    color: '#e6e8eb',
-                                    marginBottom: '6px'
-                                }}>
-                                    {thought.title}
-                                </h3>
-                                <p style={{
-                                    fontSize: '12px',
-                                    color: '#a1a6b3',
-                                    marginBottom: '8px',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap'
-                                }}>
-                                    {thought.content?.substring(0, 60) || 'No content'}
-                                </p>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    {thought.verdict && (
-                                        <span style={{
-                                            padding: '2px 8px',
-                                            background: getVerdictColor(thought.verdict) + '30',
-                                            color: getVerdictColor(thought.verdict),
-                                            borderRadius: '10px',
-                                            fontSize: '10px',
-                                            fontWeight: 600,
-                                            textTransform: 'uppercase'
-                                        }}>
-                                            {thought.verdict}
-                                        </span>
-                                    )}
-                                    {thought.confidence && thought.verdict && (
-                                        <div style={{
-                                            flex: 1,
-                                            marginLeft: '8px',
-                                            height: '2px',
-                                            background: '#222632',
-                                            borderRadius: '2px',
-                                            overflow: 'hidden'
-                                        }}>
+                        <>
+                            {/* Regular Thoughts */}
+                            {filteredThoughts.filter(t => !t.title.startsWith('Focus Session:')).map((thought) => (
+                                <div
+                                    key={thought.id}
+                                    onClick={() => handleSelectThought(thought)}
+                                    style={{
+                                        padding: '12px',
+                                        marginBottom: '8px',
+                                        background: selectedThought?.id === thought.id ? '#0f1115' : 'transparent',
+                                        border: `1px solid ${selectedThought?.id === thought.id ? '#d6a14b' : '#222632'}`,
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    <h3 style={{
+                                        fontSize: '13px',
+                                        fontWeight: 500,
+                                        color: '#e6e8eb',
+                                        marginBottom: '6px'
+                                    }}>
+                                        {thought.title}
+                                    </h3>
+                                    <p style={{
+                                        fontSize: '12px',
+                                        color: '#a1a6b3',
+                                        marginBottom: '8px',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap'
+                                    }}>
+                                        {thought.content?.substring(0, 60) || 'No content'}
+                                    </p>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        {thought.verdict && (
+                                            <span style={{
+                                                padding: '2px 8px',
+                                                background: getVerdictColor(thought.verdict) + '30',
+                                                color: getVerdictColor(thought.verdict),
+                                                borderRadius: '10px',
+                                                fontSize: '10px',
+                                                fontWeight: 600,
+                                                textTransform: 'uppercase'
+                                            }}>
+                                                {thought.verdict}
+                                            </span>
+                                        )}
+                                        {thought.confidence && thought.verdict && (
                                             <div style={{
-                                                width: `${thought.confidence}%`,
-                                                height: '100%',
-                                                background: getVerdictColor(thought.verdict)
-                                            }} />
-                                        </div>
-                                    )}
+                                                flex: 1,
+                                                marginLeft: '8px',
+                                                height: '2px',
+                                                background: '#222632',
+                                                borderRadius: '2px',
+                                                overflow: 'hidden'
+                                            }}>
+                                                <div style={{
+                                                    width: `${thought.confidence}%`,
+                                                    height: '100%',
+                                                    background: getVerdictColor(thought.verdict)
+                                                }} />
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        ))
+                            ))}
+
+                            {/* Focus Sessions Group */}
+                            {filteredThoughts.filter(t => t.title.startsWith('Focus Session:')).length > 0 && (
+                                <div style={{ marginTop: '12px', borderTop: '1px solid #222632', paddingTop: '12px' }}>
+                                    <div
+                                        onClick={() => setIsFocusExpanded(!isFocusExpanded)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            cursor: 'pointer',
+                                            color: '#a1a6b3',
+                                            fontSize: '11px',
+                                            fontWeight: 600,
+                                            marginBottom: '8px',
+                                            userSelect: 'none'
+                                        }}
+                                    >
+                                        <span style={{ fontSize: '10px' }}>{isFocusExpanded ? '▼' : '▶'}</span>
+                                        <span>Focus Sessions ({filteredThoughts.filter(t => t.title.startsWith('Focus Session:')).length})</span>
+                                    </div>
+
+                                    {isFocusExpanded && filteredThoughts.filter(t => t.title.startsWith('Focus Session:')).map((thought) => (
+                                        <div
+                                            key={thought.id}
+                                            onClick={() => handleSelectThought(thought)}
+                                            style={{
+                                                padding: '10px',
+                                                marginBottom: '6px',
+                                                marginLeft: '8px',
+                                                background: selectedThought?.id === thought.id ? '#0f1115' : 'rgba(255,255,255,0.02)',
+                                                border: `1px solid ${selectedThought?.id === thought.id ? '#d6a14b' : 'transparent'}`,
+                                                borderRadius: '6px',
+                                                cursor: 'pointer',
+                                                opacity: 0.8
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <span style={{ fontSize: '10px' }}>●</span>
+                                                <h3 style={{
+                                                    fontSize: '12px',
+                                                    fontWeight: 500,
+                                                    color: '#e6e8eb',
+                                                    whiteSpace: 'nowrap',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis'
+                                                }}>
+                                                    {thought.title.replace('Focus Session: ', '')}
+                                                </h3>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
 
@@ -314,7 +386,7 @@ export default function JournalWriteClient({ journal, initialThoughts }: Props) 
                     borderTop: '1px solid #222632'
                 }}>
                     <button
-                        onClick={() => setSelectedThought(null)}
+                        onClick={() => handleSelectThought(null)}
                         style={{
                             width: '100%',
                             padding: '10px',
@@ -338,21 +410,15 @@ export default function JournalWriteClient({ journal, initialThoughts }: Props) 
                     thought={selectedThought}
                     onAnalyze={handleAnalyze}
                     onSave={handleSave}
+                    onChange={useCallback((content: any) => setLiveContent(content), [])}
                 />
             </div>
 
             {/* Right Assistant Panel */}
             <AssistantPanel
                 verdictData={verdictData}
-                memorySnippets={[
-                    'You explored React 19 last month with similar conclusions'
-                ]}
-                evidenceSnippets={[
-                    {
-                        title: 'Freshness Check',
-                        snippet: 'Model training data is recent; no outdated information detected'
-                    }
-                ]}
+                liveContent={liveContent}
+                journalId={journal.id}
             />
         </div>
     );

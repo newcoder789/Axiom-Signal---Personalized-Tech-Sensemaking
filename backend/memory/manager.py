@@ -31,15 +31,18 @@ class AxiomMemoryManager:
     """
 
     def __init__(
-        self, redis_url: str = "redis://localhost:6379", use_embeddings: bool = True
+        self, redis_url: str = None, use_embeddings: bool = True
     ):
         """
         Initialize the memory manager.
 
         Args:
-            redis_url: Redis Stack connection URL
-            use_embeddings: Whether to use semantic embeddings (disable for faster testing)
+            redis_url: Redis Stack connection URL (defaults to REDIS_URL env or localhost)
+            use_embeddings: Whether to use semantic embeddings
         """
+        import os
+        if not redis_url:
+            redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
         # Core components
         self.vector_memory = RedisVectorMemory(redis_url)
         self.policy_engine = MemoryPolicyEngine()

@@ -24,6 +24,7 @@ export const metadata: Metadata = {
 
 import { NotificationProvider } from './notifications/NotificationContext';
 import { NotificationCenter } from './notifications/NotificationCenter';
+import PageTransition from "./components/ui/PageTransition";
 
 export default function RootLayout({
   children,
@@ -40,7 +41,9 @@ export default function RootLayout({
               <div className="main-wrapper">
                 <Navbar />
                 <main className="main-content">
-                  {children}
+                  <PageTransition>
+                    {children}
+                  </PageTransition>
                 </main>
               </div>
             </div>

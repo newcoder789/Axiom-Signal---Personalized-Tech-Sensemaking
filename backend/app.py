@@ -20,12 +20,26 @@ from logic.agent_evolution import agent_evolution
 
 load_dotenv()
 
-app = FastAPI(title="Axiom Backend API", version="2.0")
+from logic.data_bridge import data_bridge
+import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title="Axiom Signal Engine API", version="2.0")
 
 # CORS for frontend
+frontend_url = os.getenv("FRONTEND_URL", "*")
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+if frontend_url != "*":
+    origins.append(frontend_url)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=origins if frontend_url != "*" else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -56,7 +70,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize SQLite DB and Event System on startup."""
+    """Initialize SQLite DB, Event System, and Data Bridge on startup."""
     from database.engine import create_db_and_tables
     from integration.app_connector import setup_event_handlers
     
@@ -67,6 +81,20 @@ async def startup_event():
     print("[EVENT] Wiring Event Bus...")
     await setup_event_handlers()
     print("[OK] Event Bus Ready")
+
+    # Start the data bridge sync loop
+    print("[BRIDGE] Launching Postgres Sync Worker...")
+    asyncio.create_task(sync_worker_loop())
+
+async def sync_worker_loop():
+    """Background loop to sync Postgres data into SQLite every 2 minutes."""
+    while True:
+        try:
+            logger.info("[BRIDGE] Periodic background sync starting...")
+            await data_bridge.sync_now()
+        except Exception as e:
+            logger.error(f"[BRIDGE] Background sync failed: {e}")
+        await asyncio.sleep(120) # 2 minutes
 
 # ============================================================================
 # Request/Response Models
@@ -543,6 +571,24 @@ async def assistant_find_contradictions(request: AssistantTaskRequest):
         print(f"❌ Error in /api/assistant/contradictions: {e}")
         return {"contradictions": [f"Error finding contradictions: {e}"]}
 
+@app.get("/api/assistant/memory/search")
+async def search_memories_endpoint(query: str, user_id: str = "default", journal_id: Optional[str] = None):
+    """Live search for related technical memories, scoped to journal journey if provided."""
+    from memory.memory_service import MemoryService
+    service = MemoryService()
+    
+    if journal_id:
+        memories = service.get_memories_by_journal(user_id, journal_id, limit=10)
+        # Filter further if query is provided (simple keyword in memories)
+        if query:
+            memories = [m for m in memories if query.lower() in m.content.lower()]
+    else:
+        memories = service.search_memories(user_id, query)
+    
+    # Format for frontend
+    snippets = [f"[{m.content_type}] {m.content[:200]}..." for m in memories]
+    return {"snippets": snippets}
+
 
 @app.post("/api/journal")
 async def create_journal_entry(data: Dict[str, Any]):
@@ -606,6 +652,15 @@ async def get_latest_thought(user_id: str = "default"):
     if recent:
         return recent[0]
     raise HTTPException(status_code=404, detail="No thoughts found")
+
+
+@app.post("/api/assistant/sync")
+async def trigger_data_sync():
+    """Manually trigger a sync from Postgres into the local memory system."""
+    result = await data_bridge.sync_now()
+    if result["success"]:
+        return result
+    raise HTTPException(status_code=500, detail=result.get("error", "Sync failed"))
 
 @app.get("/api/thoughts/{memory_id}")
 async def get_thought_by_id(memory_id: int):
@@ -675,22 +730,22 @@ async def record_interaction_feedback(data: Dict[str, Any]):
 
 @app.post("/api/agent/task")
 async def execute_agent_task(data: Dict[str, Any]):
-    """Execute a specific assistant task."""
-    from logic.task_handlers import TaskHandlers
+    """Execute a task using the agent codebase."""
+    from logic.task_handlers import AxiomSignalHandlers
     
-    task_id = data.get("taskId") or data.get("action") # Support both formats
+    task_id = data.get("taskId")
     user_id = data.get("userId", "default")
     context = data.get("context", {})
     
     if not task_id:
-        raise HTTPException(status_code=400, detail="taskId or action is required")
+        raise HTTPException(status_code=400, detail="taskId is required")
         
     
     # Inject conversation context
     context["conversation_history"] = conversation_manager.get_context()
     context["agent_strategy"] = agent_evolution.get_strategy_config()
     
-    handlers = TaskHandlers()
+    handlers = AxiomSignalHandlers()
     
     # Record User Intent (if reasonable)
     user_task_desc = f"Execute task: {task_id}"
@@ -753,6 +808,27 @@ async def override_strategy(data: Dict[str, Any]):
     agent_evolution.current_strategy = strategy_name
     
     return {"success": True, "strategy": strategy_name}
+
+@app.delete("/api/user/memory/clear")
+async def clear_memories(userId: str = "default"):
+    """Nuclear reset: Delete all short-term and long-term memory."""
+    from logic.conversation_manager import conversation_manager
+    from memory.memory_service import MemoryService
+    
+    # 1. Clear STM
+    conversation_manager.clear_history()
+    
+    # 2. Clear LTM (SQLite)
+    mem_service = MemoryService()
+    mem_service.clear_all_memories(userId)
+    
+    # 3. Reset Evolution
+    from logic.agent_evolution import agent_evolution
+    agent_evolution.engagement_score = 0.5
+    agent_evolution.current_strategy = "standard"
+    
+    print(f"💥 NUCLEAR RESET for {userId}: Memories wiped, evolution reset.")
+    return {"success": True, "message": "System reset to baseline state."}
 
 # ============================================================================
 # Run Application
