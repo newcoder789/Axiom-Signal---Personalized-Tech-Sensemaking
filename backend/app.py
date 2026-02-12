@@ -39,7 +39,7 @@ if frontend_url != "*":
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins if frontend_url != "*" else ["*"],
-    allow_credentials=True,
+    allow_credentials=frontend_url != "*", # Credentials NOT allowed with wildcard origin
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -165,17 +165,12 @@ async def test_broadcast():
 
 @app.get("/api/health")
 async def health_check():
-    """Health check with system status"""
-    try:
-        axiom = get_axiom()
-        health = axiom.health_check()
-        return health
-    except Exception as e:
-        return {
-            "status": "degraded",
-            "error": str(e),
-            "timestamp": None
-        }
+    """Lightweight health check for Render to prevent OOM during startup."""
+    from datetime import datetime
+    return {
+        "status": "healthy",
+        "timestamp": str(datetime.now())
+    }
 
 @app.post("/api/verdict")
 async def get_verdict(request: VerdictRequest):

@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         console.log(`🔗 Calling backend: ${BACKEND_URL}/api/verdict`);
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout for Render wake-up
 
         const response = await fetch(`${BACKEND_URL}/api/verdict`, {
             method: "POST",
