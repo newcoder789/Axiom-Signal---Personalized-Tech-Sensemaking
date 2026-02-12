@@ -13,7 +13,6 @@ from dotenv import load_dotenv
 # Import existing Axiom infrastructure
 from axiom_with_power import AxiomWithPower, run_axiom_power
 from notifications.engine import AxiomNotificationEngine
-from notifications.engine import AxiomNotificationEngine
 from notifications.websocket import ws_manager
 from logic.conversation_manager import conversation_manager
 from logic.agent_evolution import agent_evolution

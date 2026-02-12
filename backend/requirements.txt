@@ -15,3 +15,4 @@ google-search-results
 sqlmodel==0.0.22
 psycopg2-binary==2.9.9
 gunicorn==23.0.0
+websockets==13.1

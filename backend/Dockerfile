@@ -28,4 +28,5 @@ ENV PORT=10000
 EXPOSE 10000
 
 # Run the application
-CMD gunicorn -w 4 -k uvicorn.workers.UvicornWorker app:app --bind 0.0.0.0:$PORT
+# We use -w 1 because Render Free tier (512MB RAM) can't handle multiple workers loading transformers
+CMD gunicorn -w 1 -k uvicorn.workers.UvicornWorker app:app --bind 0.0.0.0:$PORT
