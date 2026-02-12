@@ -31,14 +31,7 @@ from tools.orchestrator import ToolOrchestrator
 from pathlib import Path
 from langsmith.run_trees import RunTree
 
-# 🩹 PATCH: Resolve Pydantic V2 compatibility issue with Opik/LangSmith
-# Error: `RunTree` is not fully defined; you should define `Path`...
-try:
-    RunTree.model_rebuild()
-except Exception as e:
-    print(f"⚠️ Opik Patch Warning: {e}")
-
-load_dotenv()
+# Add parent directory to path for memory imports
 
 # Add parent directory to path for memory imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
