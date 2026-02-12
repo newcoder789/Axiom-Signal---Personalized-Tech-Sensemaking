@@ -10,9 +10,27 @@ import numpy as np
 from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional#, Tuple, Union
 import redis
-from redis.commands.search.field import VectorField, TagField, TextField, NumericField
-from redis.commands.search.index_definition import IndexDefinition, IndexType
-from redis.commands.search.query import Query
+try:
+    from redis.commands.search.field import VectorField, TagField, TextField, NumericField
+    from redis.commands.search.index_definition import IndexDefinition, IndexType
+    from redis.commands.search.query import Query
+except (ImportError, ModuleNotFoundError):
+    # Fallback for environments where Redis stack modules are missing (e.g. Render free tier)
+    class DummyField:
+        def __init__(self, *args, **kwargs): pass
+    VectorField = TagField = TextField = NumericField = DummyField
+    
+    class IndexDefinition:
+        def __init__(self, *args, **kwargs): pass
+    class IndexType:
+        HASH = "HASH"
+        JSON = "JSON"
+    class Query:
+        def __init__(self, *args, **kwargs): pass
+        def sort_by(self, *args, **kwargs): return self
+        def limit_fields(self, *args, **kwargs): return self
+        def paging(self, *args, **kwargs): return self
+        def dialect(self, *args, **kwargs): return self
 # import pickle
 
 from .schemas import (

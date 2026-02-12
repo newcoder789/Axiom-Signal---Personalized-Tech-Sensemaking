@@ -12,8 +12,20 @@ from dotenv import load_dotenv
 
 # Import existing Axiom infrastructure
 from axiom_with_power import AxiomWithPower, run_axiom_power
-from notifications.engine import AxiomNotificationEngine
-from notifications.websocket import ws_manager
+# Import existing Axiom infrastructure
+from axiom_with_power import AxiomWithPower, run_axiom_power
+try:
+    from notifications.engine import AxiomNotificationEngine
+    from notifications.websocket import ws_manager
+except (ImportError, ModuleNotFoundError) as e:
+    print(f"[WARN] Notification system not available: {e}")
+    class AxiomNotificationEngine:
+        def __init__(self, *args, **kwargs): pass
+        async def analyze_event(self, *args, **kwargs): return []
+    class WSManager:
+        def __init__(self, *args, **kwargs): pass
+        async def broadcast(self, *args, **kwargs): pass
+    ws_manager = WSManager()
 from logic.conversation_manager import conversation_manager
 from logic.agent_evolution import agent_evolution
 

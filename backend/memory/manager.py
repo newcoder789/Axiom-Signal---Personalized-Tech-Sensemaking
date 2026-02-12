@@ -10,7 +10,15 @@ import hashlib
 from typing import Dict, Any, Optional, List, Literal
 # from dataclasses import dataclass
 
-from redis.commands.search.query import Query
+try:
+    from redis.commands.search.query import Query
+except (ImportError, ModuleNotFoundError):
+    class Query:
+        def __init__(self, *args, **kwargs): pass
+        def sort_by(self, *args, **kwargs): return self
+        def limit_fields(self, *args, **kwargs): return self
+        def paging(self, *args, **kwargs): return self
+        def dialect(self, *args, **kwargs): return self
 from .schemas import (
     MemoryWriteContext,
     MemoryContext,

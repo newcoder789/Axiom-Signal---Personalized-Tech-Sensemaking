@@ -18,7 +18,15 @@ from opik import track
 from opik.integrations.langchain import OpikTracer
 from opik import opik_context
 import hashlib
-from redis.commands.search.query import Query
+try:
+    from redis.commands.search.query import Query
+except (ImportError, ModuleNotFoundError):
+    class Query:
+        def __init__(self, *args, **kwargs): pass
+        def sort_by(self, *args, **kwargs): return self
+        def limit_fields(self, *args, **kwargs): return self
+        def paging(self, *args, **kwargs): return self
+        def dialect(self, *args, **kwargs): return self
 from tools.orchestrator import ToolOrchestrator
 from pathlib import Path
 from langsmith.run_trees import RunTree
