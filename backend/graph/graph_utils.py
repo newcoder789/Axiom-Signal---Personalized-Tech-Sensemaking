@@ -48,20 +48,20 @@ except ImportError as e:
     MEMORY_AVAILABLE = False
 
     # Create dummy classes for fallback
+    class MemoryContext:
+        """Dummy MemoryContext for type hints when memory system is unavailable."""
+        user_traits = []
+        topic_patterns = []
+        similar_decisions = []
+        def to_prompt_string(self):
+            return "No relevant memories found."
+
     class AxiomMemoryManager:
         def __init__(self, *args, **kwargs):
             pass
 
         def get_memory_context(self, *args, **kwargs):
-            class DummyContext:
-                def to_prompt_string(self):
-                    return "No relevant memories found."
-
-                user_traits = []
-                topic_patterns = []
-                similar_decisions = []
-
-            return DummyContext()
+            return MemoryContext()
 
         def process_verdict(self, *args, **kwargs):
             return {"memory_stored": False}

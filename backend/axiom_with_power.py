@@ -25,8 +25,18 @@ from graph.graph_utils import (
     derive_user_id,
     OpikTracer,
 )
-from memory.integration import get_memory_manager
-from memory.schemas import MemoryContext
+try:
+    from memory.integration import get_memory_manager
+    from memory.schemas import MemoryContext
+    MEMORY_SYSTEM_ENABLED = True
+except ImportError as e:
+    print(f"[WARN] Memory system not available in axiom_with_power: {e}")
+    MEMORY_SYSTEM_ENABLED = False
+    # Define dummy for type hints
+    class MemoryContext:
+        pass
+    def get_memory_manager(*args, **kwargs):
+        return None
 
 
 class AxiomWithPower:
