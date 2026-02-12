@@ -1333,21 +1333,21 @@ def resolve_decision_trajectory(
 workflow = StateGraph(AxiomState)
 
 # Add nodes with memory integration
-workflow.add_node("memory_context", memory_context_node)  # PRE: Load memories
+workflow.add_node("load_memory", memory_context_node)  # PRE: Load memories
 workflow.add_node("signal_framing", signal_framing_node)  # LTM-informed
-workflow.add_node("reality_check", reality_check_node)  # STM-informed
-workflow.add_node("verdict", verdict_node)  # LTM+STM integration
+workflow.add_node("run_reality_check", reality_check_node)  # STM-informed
+workflow.add_node("synthesize_verdict", verdict_node)  # LTM+STM integration
 workflow.add_node("memory_store", memory_store_node)  # POST: Store/update
 
 # Define the flow
-workflow.add_edge("memory_context", "signal_framing")  # Memories → Analysis
-workflow.add_edge("signal_framing", "reality_check")  # Signal → Reality
-workflow.add_edge("reality_check", "verdict")  # Reality → Verdict
-workflow.add_edge("verdict", "memory_store")  # Verdict → Memory update
+workflow.add_edge("load_memory", "signal_framing")  # Memories → Analysis
+workflow.add_edge("signal_framing", "run_reality_check")  # Signal → Reality
+workflow.add_edge("run_reality_check", "synthesize_verdict")  # Reality → Verdict
+workflow.add_edge("synthesize_verdict", "memory_store")  # Verdict → Memory update
 workflow.add_edge("memory_store", END)  # Complete cycle
 
 # Set entry point
-workflow.set_entry_point("memory_context")
+workflow.set_entry_point("load_memory")
 
 # Compile the graph
 app = workflow.compile()
