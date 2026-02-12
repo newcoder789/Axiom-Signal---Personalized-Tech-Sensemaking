@@ -107,7 +107,25 @@ class RedisVectorMemory:
         if self.index_algorithm not in ("FLAT", "HNSW"):
             print(f"[WARN]  Unknown index algorithm '{self.index_algorithm}', using FLAT")
             self.index_algorithm = "FLAT"
-        self._init_indexes()
+            
+        # Whether RediSearch / FT.* commands are available
+        self.search_available = True
+        try:
+            # Check if RediSearch module is loaded
+            modules = self.redis.execute_command("MODULE LIST")
+            has_search = any(b"search" in m[1].lower() for m in modules if len(m) > 1)
+            if not has_search:
+                print("[WARN] RediSearch module not detected in Redis. FT commands disabled.")
+                self.search_available = False
+        except Exception:
+            # Fallback: Many managed providers (Upstash) don't even allow MODULE LIST
+            # We'll detect it via FT.INFO on the first attempt in _init_indexes
+            pass
+
+        if self.search_available:
+            self._init_indexes()
+        else:
+             print("[BRAIN] Skipping Search Index initialization (RediSearch unavailable)")
 
         # Initialize policy engine
         self.policy = MemoryPolicyEngine()
@@ -428,8 +446,12 @@ class RedisVectorMemory:
                 )
                 print(f"   [OK] Created interactions index ({self.index_algorithm})")
             except Exception as e:
-                print(f"   [WARN]  Could not create interactions index: {e}")
+                print(f"   [WARN] Could not create interactions index: {e}")
                 self.search_available = False
+        
+        except Exception as outer_e:
+            print(f"   [WARN] Redis Search capability check failed: {outer_e}")
+            self.search_available = False
 
     def _get_algo_config(self) -> Dict[str, Any]:
         """Get algorithm configuration for vector field"""
@@ -466,6 +488,10 @@ class RedisVectorMemory:
             "reasons": {},
             "metrics": {},
         }
+
+        if not self.search_available:
+            results["reasons"]["search"] = "redi_search_unavailable"
+            return results
 
         # CHECK: Memory threshold before proceeding
         if not self._check_memory_threshold():
@@ -542,6 +568,9 @@ class RedisVectorMemory:
     ) -> MemoryContext:
         """Get relevant memories for a query"""
         context = MemoryContext()
+        
+        if not self.search_available:
+            return context
 
         try:
             # NORMALIZE TOPIC CONSISTENTLY

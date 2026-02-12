@@ -30,6 +30,7 @@ from .schemas import (
 )
 from .redis_vector import RedisVectorMemory
 from .policy import MemoryPolicyEngine#, PolicyResult
+from .memory_service import MemoryService
 
 
 class AxiomMemoryManager:
@@ -51,7 +52,9 @@ class AxiomMemoryManager:
         import os
         if not redis_url:
             redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+            
         # Core components
+        self.sql_memory = MemoryService()
         self.vector_memory = RedisVectorMemory(redis_url)
         self.policy_engine = MemoryPolicyEngine()
 
@@ -99,26 +102,47 @@ class AxiomMemoryManager:
     ) -> MemoryContext:
         """
         Create memory context for a new query (READ-ONLY phase).
-
-        Args:
-            user_profile: User profile description
-            topic: Current topic being queried
-            current_query: Optional query text for semantic search
-
-        Returns:
-            MemoryContext with relevant memories as hints
+        Pivoted: Now uses SQL search primarily, Redis Vector as 'bonus' if available.
         """
         # Derive user ID
         user_id = self.derive_user_id(user_profile)
 
-        # Get memory context from vector store
-        memory_context = self.vector_memory.get_memory_context(
-            user_id=user_id,
-            topic=topic,
-            current_query=current_query if self.use_embeddings else "",
-        )
+        # 1. Primary Context from SQL (Keyword search + Recency)
+        sql_memories = self.sql_memory.get_recent_memories(user_id, limit=5, content_type=None)
+        if current_query:
+            search_results = self.sql_memory.search_memories(user_id, current_query, limit=5)
+            # Combine and deduplicate
+            seen_ids = {m.id for m in sql_memories}
+            for m in search_results:
+                if m.id not in seen_ids:
+                    sql_memories.append(m)
 
-        return memory_context
+        # Convert SQL models to MemoryContext categories
+        user_traits = [m.content for m in sql_memories if m.content_type == "trait"]
+        topic_patterns = [m.content for m in sql_memories if m.content_type == "pattern"]
+        decisions = [m.content for m in sql_memories if m.content_type == "decision"]
+
+        # 2. Secondary/Legacy Context from Vector (Safe call)
+        try:
+            vector_context = self.vector_memory.get_memory_context(
+                user_id=user_id,
+                topic=topic,
+                current_query=current_query if self.use_embeddings else "",
+            )
+            # Merge vector findings into context strings
+            user_traits.extend(vector_context.user_traits)
+            topic_patterns.extend(vector_context.topic_patterns)
+            decisions.extend([d.verdict for d in vector_context.historical_decisions])
+        except Exception as e:
+             print(f"[WARN] Vector memory lookup skipped (likely Upstash/Search disabled): {e}")
+
+        return MemoryContext(
+            user_id=user_id,
+            user_traits=list(set(user_traits)),
+            topic_patterns=list(set(topic_patterns)),
+            historical_decisions=[], # We'll just use the strings in simplified view for now
+            status="sql_primary"
+        )
 
     def process_verdict(
         self,
@@ -131,17 +155,7 @@ class AxiomMemoryManager:
     ) -> Dict[str, Any]:
         """
         Process a completed verdict and store relevant memories (WRITE phase).
-
-        Args:
-            user_profile: User profile description
-            topic: Topic that was analyzed
-            verdict_data: Verdict node output
-            signal_data: Signal framing node output
-            reality_check_data: Reality check node output
-            pipeline_state: Full pipeline state
-
-        Returns:
-            Dictionary with processing results
+        Pivoted: Writes to SQL primary, Redis Vector secondary (safe).
         """
         # Derive user ID
         user_id = self.derive_user_id(user_profile)
@@ -161,8 +175,23 @@ class AxiomMemoryManager:
             contract_violation=pipeline_state.get("contract_violation", False),
         )
 
-        # Process verdict through vector memory system
-        memory_results = self.vector_memory.process_verdict(ctx)
+        # 1. Primary Storage: SQL
+        sql_ids = []
+        if ctx.verdict:
+            sql_id = self.sql_memory.store_memory(
+                user_id=user_id,
+                content_type="decision",
+                content=f"Topic: {topic} | Verdict: {ctx.verdict} | Reasoning: {ctx.reasoning}",
+                metadata={"topic": topic, "confidence": ctx.confidence}
+            )
+            sql_ids.append(sql_id)
+
+        # 2. Secondary Storage: Vector (Safe call)
+        memory_results = {"user_traits": [], "topic_patterns": [], "decision_stored": False}
+        try:
+            memory_results = self.vector_memory.process_verdict(ctx)
+        except Exception as e:
+            print(f"[WARN] Redis Vector storage skipped: {e}")
 
         # Log what happened
         self._log_memory_operations(ctx, memory_results)
@@ -170,15 +199,15 @@ class AxiomMemoryManager:
         # Return comprehensive results
         return {
             "user_id": user_id,
-            "memory_stored": any(
+            "memory_stored": len(sql_ids) > 0 or any(
                 [
                     memory_results["user_traits"],
                     memory_results["topic_patterns"],
                     memory_results["decision_stored"],
                 ]
             ),
+            "sql_ids": sql_ids,
             "details": memory_results,
-            "context_used": None,  # Context was used in verdict node, not here
         }
 
     def store_interaction(
@@ -192,38 +221,41 @@ class AxiomMemoryManager:
     ) -> Dict[str, Any]:
         """
         Store a user/agent interaction in memory.
-
-        Args:
-            user_profile: User profile description
-            interaction_type: Type of interaction
-            content: Main text content
-            topic: Optional topic context
-            role: Who sent the message
-            confidence: Confidence in the storage/content
-
-        Returns:
-            Dictionary with storage details
+        Pivoted: SQL primary, Redis secondary.
         """
         user_id = self.derive_user_id(user_profile)
 
-        interaction = InteractionMemory(
+        # 1. Store in SQL
+        sql_id = self.sql_memory.record_interaction(
             user_id=user_id,
             interaction_type=interaction_type,
             content=content,
-            topic=topic,
-            role=role,
-            confidence=confidence,
+            related_memory_ids=[]
         )
 
-        # Generate embedding if enabled
-        if self.use_embeddings:
-            interaction.embedding = self.vector_memory.encode_vec(content)
+        # 2. Store in Redis (Safe call)
+        key = None
+        try:
+            interaction = InteractionMemory(
+                user_id=user_id,
+                interaction_type=interaction_type,
+                content=content,
+                topic=topic,
+                role=role,
+                confidence=confidence,
+            )
+            # Generate embedding if enabled
+            if self.use_embeddings:
+                try:
+                    interaction.embedding = self.vector_memory.encode_vec(content)
+                except: pass
+                
+            key = f"axiom:interaction:{user_id}:{interaction.id}"
+            self.vector_memory.redis.hset(key, mapping=interaction.to_redis_dict())
+        except Exception as e:
+            print(f"[WARN] Interaction storage in Redis skipped: {e}")
 
-        # Store in Redis via vector memory
-        key = f"axiom:interaction:{user_id}:{interaction.id}"
-        self.vector_memory.redis.hset(key, mapping=interaction.to_redis_dict())
-
-        return {"user_id": user_id, "interaction_id": interaction.id, "key": key}
+        return {"user_id": user_id, "interaction_id": sql_id, "redis_key": key}
 
     def get_interaction_history(
         self, user_profile: str, limit: int = 20
@@ -239,38 +271,42 @@ class AxiomMemoryManager:
             List of interactions sorted by time
         """
         user_id = self.derive_user_id(user_profile)
+        interactions = []
 
-        query = (
-            Query(f"@user_id:{user_id}")
-            .sort_by("created_at", asc=False)
-            .paging(0, limit)
-        )
+        # 1. Primary: SQL Interaction History
+        sql_interactions = self.sql_memory.get_interaction_history(user_id, limit=limit)
+        for si in sql_interactions:
+             interactions.append({
+                 "id": str(si.id),
+                 "type": si.interaction_type,
+                 "content": si.content,
+                 "created_at": si.created_at.timestamp() if si.created_at else None,
+                 "source": "sql"
+             })
 
-        try:
-            # We need to ensure we only query interaction memories
-            # We can do this by using the correct index or adding a filter
-            # For now, searching the generic decision index might not work if Interaction isn't there
-            # Axiom uses separate indexes per type or a combined one?
-            # redis_vector.py has separate idx:axiom:decisions etc.
-            
-            # Let's check redis_vector.py to see if I need a new index for        try:
-            results = self.vector_memory.redis.ft("idx:axiom:interactions").search(query)
-            
-            interactions = []
-            for doc in results.docs:
-                try:
-                    # Search results can have corrupted strings for bytes
-                    # So we fetch the clean raw data via hgetall
-                    raw_data = self.vector_memory.redis.hgetall(doc.id)
-                    if raw_data:
-                        interactions.append(InteractionMemory.from_redis_dict(raw_data).model_dump())
-                except Exception as inner_e:
-                    print(f"Failed to process interaction {doc.id}: {inner_e}")
-                    
-            return interactions
-        except Exception as e:
-            print(f"Interaction history retrieval failed: {e}")
-            return []
+        # 2. Secondary: Redis Interaction History (Safe Call)
+        if self.vector_memory.search_available:
+            try:
+                query = (
+                    Query(f"@user_id:{user_id}")
+                    .sort_by("created_at", asc=False)
+                    .paging(0, limit)
+                )
+                results = self.vector_memory.redis.ft("idx:axiom:interactions").search(query)
+                
+                for doc in results.docs:
+                    try:
+                        raw_data = self.vector_memory.redis.hgetall(doc.id)
+                        if raw_data:
+                            interaction = InteractionMemory.from_redis_dict(raw_data).model_dump()
+                            interaction["source"] = "redis"
+                            interactions.append(interaction)
+                    except: pass
+            except Exception as e:
+                print(f"[WARN] Redis interaction history search skipped: {e}")
+
+        # Return combined list sorted by time
+        return sorted(interactions, key=lambda x: x.get("created_at", 0), reverse=True)[:limit]
 
     def get_user_profile_summary(self, user_profile: str) -> Dict[str, Any]:
         """
@@ -284,11 +320,36 @@ class AxiomMemoryManager:
         """
         user_id = self.derive_user_id(user_profile)
 
-        # Get user traits (via fallback method since we don't have a query)
-        traits = self.vector_memory._get_user_traits(user_id, limit=10)
+        # 1. Primary data from SQL
+        sql_memories = self.sql_memory.get_recent_memories(user_id, limit=50)
+        
+        traits = [{"fact": m.content, "confidence": 0.9, "id": str(m.id)} for m in sql_memories if m.content_type == "trait"]
+        decisions = []
+        for m in sql_memories:
+            if m.content_type == "decision":
+                # Decision content is stored as "Topic: ... | Verdict: ... | Reasoning: ..."
+                # Simple extraction for summary view
+                content = m.content
+                topic = "Unknown"
+                if "Topic: " in content:
+                    topic = content.split("Topic: ")[1].split(" | Verdict:")[0]
+                
+                decisions.append({
+                    "id": str(m.id),
+                    "topic": topic,
+                    "content": content,
+                    "created_at": m.created_at.timestamp() if m.created_at else None
+                })
 
-        # Get recent decisions
-        decisions = self.vector_memory._get_recent_decisions(user_id, limit=5)
+        # 2. Secondary data from Redis (Safe Call)
+        if self.vector_memory.search_available:
+            try:
+                vector_traits = self.vector_memory._get_user_traits(user_id, limit=10)
+                vector_decisions = self.vector_memory._get_recent_decisions(user_id, limit=5)
+                # Merge (simple append for now)
+                traits.extend(vector_traits)
+                decisions.extend(vector_decisions)
+            except: pass
 
         # Calculate statistics
         total_traits = len(traits)
@@ -301,16 +362,16 @@ class AxiomMemoryManager:
 
         # Calculate decision distribution
         verdict_counts = {}
-        for decision in decisions:
-            verdict = decision.get("verdict", "")
+        for d in decisions:
+            verdict = d.get("verdict", "Unknown")
             verdict_counts[verdict] = verdict_counts.get(verdict, 0) + 1
 
         return {
             "user_id": user_id,
-            "traits": traits,
+            "traits": traits[:20],
             "total_traits": total_traits,
             "strongest_trait": strongest_trait,
-            "recent_decisions": decisions,
+            "recent_decisions": decisions[:10],
             "total_decisions": total_decisions,
             "verdict_distribution": verdict_counts,
             "profile_age_days": self._calculate_profile_age(user_id),

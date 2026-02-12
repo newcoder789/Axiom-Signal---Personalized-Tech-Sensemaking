@@ -191,6 +191,14 @@ class MemoryService:
             
             return interaction.id
 
+    def get_interaction_history(self, user_id: str, limit: int = 20) -> List[AgentInteraction]:
+        """Retrieve recent interaction history for a user."""
+        with Session(self.engine) as session:
+            statement = select(AgentInteraction).where(
+                AgentInteraction.user_id == user_id
+            ).order_by(AgentInteraction.created_at.desc()).limit(limit)
+            return session.exec(statement).all()
+
     def update_interaction(self, interaction_id: int, user_response: str, was_helpful: bool = None):
         """Update an interaction with user feedback."""
         with Session(self.engine) as session:
