@@ -6,7 +6,7 @@ Memory integration status: Full LTM/STM cycle implemented
 """
 
 from langgraph.graph import StateGraph, END
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 from typing import Optional, Literal, Any, Dict, List
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
@@ -19,14 +19,17 @@ from opik.integrations.langchain import OpikTracer
 from opik import opik_context
 import hashlib
 try:
-    from redis.commands.search.query import Query
+    from redis.commands.search.query import Query as _RedisQuery
 except (ImportError, ModuleNotFoundError):
-    class Query:
+    class _RedisQuery:
         def __init__(self, *args, **kwargs): pass
         def sort_by(self, *args, **kwargs): return self
         def limit_fields(self, *args, **kwargs): return self
         def paging(self, *args, **kwargs): return self
         def dialect(self, *args, **kwargs): return self
+
+class Query(_RedisQuery):
+    pass
 from tools.orchestrator import ToolOrchestrator
 from pathlib import Path
 from langsmith.run_trees import RunTree
@@ -191,10 +194,9 @@ class AxiomState(BaseModel):
 # ============================================================================
 # LLM SETUP
 # ============================================================================
-
 llm = ChatGroq(
     model="llama-3.3-70b-versatile",
-    api_key=os.getenv("GROQ_API_KEY"),
+    api_key=SecretStr(os.environ["GROQ_API_KEY"]) if "GROQ_API_KEY" in os.environ else None,
     temperature=0.7,
 )
 

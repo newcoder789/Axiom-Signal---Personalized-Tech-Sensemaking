@@ -8,6 +8,9 @@ This is the proper test that shows everything in Opik.
 
 import sys
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Set UTF-8 encoding for Windows
 if sys.platform == 'win32':
@@ -34,9 +37,9 @@ def test_full_pipeline():
     This will show up in Opik with all nodes traced.
     """
     print_separator("FULL PIPELINE TEST (Memory + Tools)")
-    
+
     # Import the full graph
-    from graph.graph_utils import app, run_axiom_query, OpikTracer
+    from graph.graph_utils import app, run_axiom_query
     
     test_cases = [
         # (topic, profile, description)
